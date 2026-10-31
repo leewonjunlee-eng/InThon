@@ -10,6 +10,7 @@ test('frontend selection connects only its active tab and preserves audio contro
   let windowFocused = true;
   let focusedWindowId = 1;
   let blockedTabId = null;
+  let missingCardReceiver = false, cardReinjections = 0;
   const inboxMessages = [];
   const contentMessages = [], notifications = new Map();
   const engineCommands = [], scannedTabs = [], aiRequests = [], popupRequests = [];
@@ -46,12 +47,12 @@ test('frontend selection connects only its active tab and preserves audio contro
       query: async query => query.active ? tabs.filter(tab => tab.id === activeId && (query.windowId === undefined || tab.windowId === query.windowId)) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
       onActivated: { addListener(fn) { tabActivated = fn; } }, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
-      sendMessage: async (id, message) => { if (message.to === 'monitor') return { monitorReady: monitorTabs.has(id) }; if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return { ok: true }; },
+      sendMessage: async (id, message) => { if (message.cmd === 'moment' && missingCardReceiver) return undefined; if (message.to === 'monitor') return { monitorReady: monitorTabs.has(id) }; if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return { ok: true }; },
     },
     windows: { getLastFocused: async () => ({ id: focusedWindowId, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
     offscreen: { hasDocument: async () => true },
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
-    scripting: { executeScript: async ({ target, files }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); if (files?.includes("status-bar.js")) { monitorTabs.add(target.tabId); return []; } scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
+    scripting: { executeScript: async ({ target, files }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); if (files?.includes("status-bar.js")) { if (files.includes("content.js") && missingCardReceiver) { missingCardReceiver=false; cardReinjections++; } monitorTabs.add(target.tabId); return []; } scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
     commands: { onCommand: { addListener(fn) { shortcut = fn; } } },
     notifications: { onClosed: { addListener(fn) { notificationClosed = fn; } }, onButtonClicked: { addListener(fn) { notificationClick = fn; } },
       getAll: async () => Object.fromEntries(notifications),
@@ -156,7 +157,9 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal((await send('focus', { tabId: 999 })).ok, false);
 
     const moment = { id: 'merged-event', tabId: 12, topic: '한화 경기', summary: '최근 자막', evidence: [], summaryStatus: 'loading' };
+    missingCardReceiver = true;
     await emit({ type: 'moment', moment });
+    assert(!missingCardReceiver && cardReinjections > 0, 'a status-only receiver must not swallow the alert');
     assert.equal(contentMessages.at(-1).cmd, 'moment');
     await emit({ type: 'moment-update', moment: { ...moment, summary: '완료된 요약', summaryStatus: 'ai' } });
     assert.equal(latest.moments[0].summaryStatus, 'ai');

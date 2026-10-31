@@ -63,7 +63,10 @@ const focusSuggestion = createFocusSuggestion({
     await refreshView();
     if (focusCandidate()?.tabId !== candidate.tabId) return;
     const message = { to: "content", cmd: "focus-suggestion", tabId: candidate.tabId, title: candidate.title };
-    try { await chrome.tabs.sendMessage(candidate.tabId, message); }
+    try {
+      const reply = await chrome.tabs.sendMessage(candidate.tabId, message);
+      if (!reply?.ok) throw new Error("알림 화면이 준비되지 않았습니다.");
+    }
     catch {
       await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["inbox.js", "content.js", "status-bar.js"] });
       if (focusCandidate()?.tabId === candidate.tabId) await chrome.tabs.sendMessage(candidate.tabId, message);
@@ -132,7 +135,7 @@ async function syncMonitor(force = false) {
     } catch { if (!snapshot.connected) return; }
     // Tabs opened before extension installation may have no status script yet.
     try {
-      await chrome.scripting.executeScript({ target:{ tabId:tab.id }, files:["status-bar.js"] });
+      await chrome.scripting.executeScript({ target:{ tabId:tab.id }, files:["inbox.js", "content.js", "status-bar.js"] });
       await chrome.tabs.sendMessage(tab.id, message);
     } catch { /* Chrome-protected pages do not allow content scripts. */ }
   }));
@@ -435,14 +438,15 @@ async function displayMoment(moment, chime = true) {
 async function showCard(tabId, moment, index) {
   const message = { to: "content", cmd: "moment", moment, slot: index };
   try {
-    await chrome.tabs.sendMessage(tabId, message);
+    const reply = await chrome.tabs.sendMessage(tabId, message);
+    if (!reply?.ok) throw new Error("알림 화면이 준비되지 않았습니다.");
     return true;
   } catch {
     // 설치 전에 열린 탭에는 콘텐츠 스크립트가 없다.
     try {
       await chrome.scripting.executeScript({ target: { tabId }, files: ["inbox.js", "content.js", "status-bar.js"] });
-      await chrome.tabs.sendMessage(tabId, message);
-      return true;
+      const reply = await chrome.tabs.sendMessage(tabId, message);
+      return Boolean(reply?.ok);
     } catch {
       return false;
     }
