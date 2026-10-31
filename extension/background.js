@@ -301,6 +301,7 @@ async function disconnect(index) {
   if (state.peek === index) state.peek = null;
   state.snapshot = null;
   state.transcript = state.transcript.filter((line) => line.tabId !== tabId);
+  await syncMonitor(); // Remove closed/disconnected tabs before waiting for the audio engine.
   if (tabId !== null) await toEngine("remove", { tabId }).catch(() => {});
   await applyRoles({ immediate: true });
 }

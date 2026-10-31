@@ -304,6 +304,8 @@ test('frontend selection connects only its active tab and preserves audio contro
     tabs.splice(tabs.findIndex(tab => tab.id === 12), 1);
     activeId = 11;
     await tabRemoved(12);
+    const monitorAfterClose = await send('get-monitor');
+    assert(!monitorAfterClose.result.items.some(item => item.tabId === 12), 'closed tabs disappear from the status bar');
     assert.equal(latest.slots[1].tabId, null, 'closing a connected tab clears its slot');
     assert.equal(latest.manual, null, 'closing the focused tab clears manual focus');
     assert.equal(latest.view.tabId, 11);
