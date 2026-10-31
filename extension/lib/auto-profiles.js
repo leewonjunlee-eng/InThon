@@ -5,7 +5,8 @@ export function cleanAlertProfile(value) {
     text: text(rule.text, 240), enabled: rule.enabled !== false,
   })).filter(rule => rule.text);
   if (!rules.length) throw new Error("알림 조건을 하나 이상 입력해 주세요.");
-  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: text(value.summaryFocus, 300), rules };
+  const watchPhrases = (Array.isArray(value.watchPhrases) ? value.watchPhrases : []).map(phrase => text(phrase, 20)).filter(Boolean).slice(0, 12);
+  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: text(value.summaryFocus, 300), rules, watchPhrases };
 }
 
 export function alertProfileFor(slot) {
@@ -13,8 +14,11 @@ export function alertProfileFor(slot) {
   if (!profile) return null;
   const rules = profile.rules.filter(rule => rule.enabled);
   if (!rules.length) return null;
+  // A scope the user chose or edited must stay exact.
+  const broad = !slot.alertSetup.edited && !slot.alertSetup.request;
   return { ...profile, id: `auto-${slot.tabId}`, keywords: [], aliases: {}, requireEvidence: true,
-    condition: rules.map(rule => rule.text).join("\n또는: "),
+    watchPhrases: [...(profile.watchPhrases ?? []), ...(broad ? BROAD_PHRASES : [])],
+    condition: [...rules.map(rule => rule.text), ...(broad ? [BROAD_RULE] : [])].join("\n또는: "),
     summaryFocus: profile.summaryFocus || "알림 조건과 관련된 사건, 결정, 일정",
   };
 }
@@ -22,6 +26,10 @@ export function alertProfileFor(slot) {
 export function contextProfile(profile, contextOnly) {
   return { ...(profile ?? { id: "context", name: "내용 파악", keywords: [], aliases: {} }), contextOnly };
 }
+
+// A genre-independent safety net: speakers announce what matters in similar words everywhere.
+const BROAD_RULE = "화자가 결정, 공개, 발표, 마감, 시험, 과제, 특정인 호명처럼 듣는 사람이 놓치면 안 될 일이 곧 벌어진다고 직접 알릴 때";
+const BROAD_PHRASES = ["잠시 후", "이제 곧", "곧 시작", "드디어", "처음으로", "공개", "속보", "발표", "결정", "시험에", "과제", "마감", "선착순", "잘 들으세요", "말씀드릴게", "답변해"];
 
 // Later refinements catch up with what the tab actually became after the title.
 const REFINE_AFTER_MS = [30000, 150000, 400000];

@@ -23,7 +23,8 @@ test("AI conditions are generated for the connected tab and only enabled rules r
   assert.deepEqual(request, { title: "신제품 공개 라이브", host: "example.com", text: "" });
   assert.equal(f.slots[0].alertSetup.status, "ready");
   assert.equal(f.slots[0].profileId, "auto");
-  assert.equal(alertProfileFor(f.slots[0]).condition, "최종 가격이 실제 공개되었을 때");
+  assert.match(alertProfileFor(f.slots[0]).condition, /^최종 가격이 실제 공개되었을 때\n또는: /);
+  assert(!alertProfileFor(f.slots[0]).condition.includes("판매 시작 시각"));
   assert.deepEqual(alertProfileFor(f.slots[0]).keywords, [], "words alone must not trigger generic alerts");
   f.controller.save(0, { ...profile(), rules: profile().rules.map(rule => ({ ...rule, enabled: false })) });
   assert.equal(alertProfileFor(f.slots[0]), null);
@@ -66,6 +67,24 @@ test("refinement repeats on a schedule and a failed refinement keeps the working
   await f.controller.observe(0);
   assert.equal(f.slots[0].alertSetup.status, "ready");
   assert(alertProfileFor(f.slots[0]));
+});
+
+test("watch phrases survive cleaning and reach the listening profile", async () => {
+  const f = fixture(async () => ({ ...profile(), watchPhrases: [" 바론 쪽으로 ", 7, "", "이니시"] }));
+  await f.controller.generate(0);
+  assert.deepEqual(alertProfileFor(f.slots[0]).watchPhrases.slice(0, 2), ["바론 쪽으로", "이니시"]);
+  assert(alertProfileFor(f.slots[0]).watchPhrases.includes("잠시 후"), "every tab gets the shared safety net");
+});
+
+test("a scope the user requested or edited is not widened by the safety net", async () => {
+  const f = fixture();
+  await f.controller.generate(0, { request: "가격 공개만 알려줘" });
+  assert.equal(alertProfileFor(f.slots[0]).condition, "최종 가격이 실제 공개되었을 때");
+  const g = fixture();
+  await g.controller.generate(0);
+  g.controller.save(0, profile());
+  assert.equal(alertProfileFor(g.slots[0]).condition, "최종 가격이 실제 공개되었을 때");
+  assert(!alertProfileFor(g.slots[0]).watchPhrases.includes("잠시 후"));
 });
 
 test("late generation cannot overwrite edits, a replacement connection, or a disabled profile", async () => {

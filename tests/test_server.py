@@ -39,6 +39,11 @@ class SuggestProfileTests(unittest.TestCase):
             with patch.object(server, "ask_json", return_value={"important": True, "evidence": evidence}):
                 self.assertEqual(server.judge({"condition": "한타", "text": text})["important"], expected, evidence)
 
+    def test_suggested_profiles_keep_only_usable_watch_phrases(self):
+        answer = {"rules": [{"text": "바론을 시도하려 한다"}], "watchPhrases": ["바론 쪽으로", "x", 3, "각을 봅니다"]}
+        with patch.object(server, "ask_json", return_value=answer):
+            self.assertEqual(server.suggest_profile({"title": "경기"})["watchPhrases"], ["바론 쪽으로", "각을 봅니다"])
+
     def test_user_preference_is_separate_from_untrusted_page_context(self):
         answer = {"name": "한화 경기", "rules": [{"text": "한화 경기 중 한타가 발생하면"}]}
         with patch.object(server, "ask_json", return_value=answer) as model:

@@ -8,7 +8,10 @@ const TICK_MS = 250;
 const KEEP_MS = 30 * 60 * 1000;
 const MOMENT_GAP_MS = 20000;
 const WINDOW_MS = 30000;
-const JUDGE_EVERY_MS = 30000;
+const JUDGE_EVERY_MS = 15000;
+const JUDGE_WINDOW_MS = 20000; // 주기보다 조금 길게 잡되 알림 뒤 같은 대사를 다시 판단하지 않는 길이.
+const WATCH_WINDOW_MS = 15000; // 조짐 표현은 최근 말만 보고 바로 판단한다.
+const WATCH_GAP_MS = 8000; // 표현이 몰려도 판단 호출이 쏟아지지 않게 한다.
 const DIGEST_EVERY_MS = 5 * 60 * 1000;
 const SURGE_WAIT_MS = 3000; // 함성 뒤에 나오는 자막까지 함께 판단한다.
 const DUCK_DB = -38;
@@ -237,7 +240,12 @@ export class AudioEngine {
     this.addLine(channel, text);
     if (channel.profile.contextOnly) return;
     const keyword = findKeyword(text, channel.profile.keywords);
-    if (keyword) this.moment(channel, { kind: "keyword", keyword });
+    if (keyword) return this.moment(channel, { kind: "keyword", keyword });
+    const now = Date.now();
+    if (findKeyword(text, channel.profile.watchPhrases ?? []) && now - (channel.lastWatchAt ?? 0) >= WATCH_GAP_MS) {
+      channel.lastWatchAt = now;
+      this.moment(channel, { kind: "watch" });
+    }
   }
 
   tick(channel) {
@@ -292,10 +300,11 @@ export class AudioEngine {
     const attempt = channel.momentAttempt = {};
     const current = () => channel.momentAttempt === attempt && this.channels.get(channel.id) === channel && channel.profile && !channel.profile.contextOnly && channel.profile.condition === condition;
     const resetCooldown = () => { if (channel.momentAttempt === attempt) channel.lastMomentAt = 0; };
-    const lines = this.recent(channel);
+    const lines = this.recent(channel, { watch: WATCH_WINDOW_MS, judge: JUDGE_WINDOW_MS }[kind] ?? WINDOW_MS);
     const text = linesToText(lines);
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
-    if (kind === "judge" && !hasSpeech) {
+    const gated = kind === "judge" || kind === "watch"; // AI가 확인해야만 알린다.
+    if (gated && !hasSpeech) {
       resetCooldown();
       return;
     }
@@ -313,13 +322,13 @@ export class AudioEngine {
         confident = true;
       } catch {
         if (channel.momentAttempt !== attempt) return;
-        if (kind === "judge" || channel.profile?.requireEvidence) {
+        if (gated || channel.profile?.requireEvidence) {
           resetCooldown();
           return;
         }
       }
     }
-    if (kind === "judge" && !confident) return;
+    if (gated && !confident) return;
     if (!hasSpeech) lines.length = 0;
 
     const fallback = transcriptExcerpt(lines);
