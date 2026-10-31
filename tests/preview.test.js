@@ -80,6 +80,14 @@ test('preview preserves AI requests, focus/switch/restore, audio controls and di
     assert.equal(state.manual, 1);
     await send('remove-slot', { index: 1 });
     assert.equal(state.manual, null);
+    await send('focus', { index: 0 });
+    await send('pin', { index: 0 });
+    await send('peek', { index: 0 });
+    await send('settings', { patch: { auto: true } });
+    assert.equal(state.manual, null);
+    assert.equal(state.peek, null);
+    assert.equal(state.snapshot, null);
+    assert.equal(state.slots[0].pinned, false);
 
   } finally {
     for (let index = 0; index < state.slots.length; index++) {

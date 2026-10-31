@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // Exercise the real background message boundary with Chrome APIs replaced by fakes.
 test('frontend selection connects only its active tab and preserves audio controls', async () => {
-  let handler, latest, shortcut, notificationClick, tabRemoved;
+  let handler, latest, shortcut, notificationClick, tabRemoved, tabActivated;
   let activeId = 11;
   let windowFocused = true;
   let focusedWindowId = 1;
@@ -40,7 +40,7 @@ test('frontend selection connects only its active tab and preserves audio contro
       get: async id => { const tab = tabs.find(tab => tab.id === id); if (!tab) throw new Error("missing tab"); return tab; },
       query: async query => query.active ? tabs.filter(tab => tab.id === activeId && (query.windowId === undefined || tab.windowId === query.windowId)) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
-      onActivated: event, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
+      onActivated: { addListener(fn) { tabActivated = fn; } }, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
       sendMessage: async (id, message) => { if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); contentMessages.push({ id, ...message }); return { ok: true }; },
     },
     windows: { getLastFocused: async () => ({ id: focusedWindowId, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
@@ -88,6 +88,29 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal((await send('connect', { index: 1, tabId: 12 })).ok, true);
     assert.equal((await send('connect', { index: 1, tabId: 12 })).ok, false, 'cannot capture twice');
     assert.equal(latest.manual, 0, 'second connection preserves existing focus');
+    await tabActivated();
+    assert.equal(latest.manual, null, 'auto mode releases connection focus when another tab is viewed');
+    assert.equal(latest.slots[1].role, 'main');
+    await send('focus', { index: 0 });
+    activeId = 12;
+    await tabActivated();
+    assert.equal(latest.manual, null, 'explicit focus does not lock subsequent automatic navigation');
+    await send('settings', { patch: { auto: false } });
+    await send('focus', { index: 0 });
+    activeId = 12;
+    await tabActivated();
+    assert.equal(latest.manual, 0, 'manual mode keeps focus while browsing other tabs');
+    await send('pin', { index: 0 });
+    await send('peek', { index: 0 });
+    await send('settings', { patch: { auto: true } });
+    assert.equal(latest.manual, null);
+    assert.equal(latest.peek, null);
+    assert.equal(latest.snapshot, null);
+    assert.equal(latest.slots[0].pinned, false);
+    assert.equal(latest.slots[1].role, 'main', 'enabling automatic mode immediately follows the viewed tab');
+    await send('focus', { index: 0 });
+    activeId = 12;
+
     assert.equal(latest.slots[1].role, 'standby');
     await send('auto');
     await send('pin', { index: 1 });

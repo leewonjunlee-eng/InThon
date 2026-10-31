@@ -164,6 +164,12 @@ export function createPreviewTransport() {
         case "settings":
           if ("serverUrl" in payload.patch || "token" in payload.patch) payload.patch = { ...payload.patch, ...normalizeConnection({ ...state.settings, ...payload.patch }) };
           Object.assign(state.settings, payload.patch);
+          if (payload.patch.auto === true) {
+            state.manual = null;
+            state.peek = null;
+            state.snapshot = null;
+            state.slots.forEach(slot => { slot.pinned = false; });
+          }
           if ("focusVol" in payload.patch || "bgVol" in payload.patch) state.slots.forEach(item => {
             item.volumes = { main: state.settings.focusVol, standby: state.settings.bgVol };
           });

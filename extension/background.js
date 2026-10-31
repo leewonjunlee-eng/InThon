@@ -483,6 +483,12 @@ const commands = {
   settings: ({ patch }) => {
     if ("serverUrl" in patch || "token" in patch) patch = { ...patch, ...normalizeConnection({ ...state.settings, ...patch }) };
     Object.assign(state.settings, patch);
+    if (patch.auto === true) {
+      state.manual = null;
+      state.peek = null;
+      state.snapshot = null;
+      state.slots.forEach(slot => { slot.pinned = false; });
+    }
     if ("focusVol" in patch || "bgVol" in patch) {
       state.slots.forEach((slot) => {
         slot.volumes = { main: state.settings.focusVol, standby: state.settings.bgVol };
@@ -528,6 +534,10 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
 async function onViewChanged() {
   await load();
   await refreshView();
+  // A focus command applies now, but must not lock later navigation in auto mode.
+  if (state.settings.auto && (!state.view.focused || state.slots[state.manual]?.tabId !== state.view.tabId)) {
+    state.manual = null;
+  }
   await applyRoles();
 }
 
