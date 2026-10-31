@@ -115,6 +115,28 @@ test("a new page regenerates conditions and restarts refinement, but keeps user 
   assert.equal(requests.length, 2);
 });
 
+test("a tab listens with the safety net while the AI is still generating", async () => {
+  let resolve;
+  const f = fixture(() => new Promise(done => { resolve = done; }));
+  const pending = f.controller.generate(0);
+  await new Promise(done => setImmediate(done));
+  assert.equal(f.slots[0].alertSetup.status, "generating");
+  assert.equal(f.applies(), 1, "listening starts before the answer");
+  assert(alertProfileFor(f.slots[0]).condition.includes("놓치면 안 될"));
+  assert(alertProfileFor(f.slots[0]).watchPhrases.includes("잠시 후"));
+  resolve(profile());
+  await pending;
+  assert.match(alertProfileFor(f.slots[0]).condition, /^최종 가격이 실제 공개되었을 때/);
+  const failed = fixture(async () => { throw new Error("slow"); });
+  await failed.controller.generate(0);
+  assert.equal(failed.slots[0].alertSetup.status, "error");
+  assert(alertProfileFor(failed.slots[0]), "a failed generation still listens");
+  const scoped = fixture(() => new Promise(() => {}));
+  void scoped.controller.generate(0, { request: "가격만" });
+  await new Promise(done => setImmediate(done));
+  assert.equal(alertProfileFor(scoped.slots[0]), null, "a requested scope is never widened");
+});
+
 test("late generation cannot overwrite edits, a replacement connection, or a disabled profile", async () => {
   for (const change of [
     f => f.controller.save(0, profile("내 수정")),
@@ -239,5 +261,5 @@ test("a server must support prompts so user requests cannot be silently ignored"
   finish(profile());
   await pending;
   assert.equal(f.slots[0].alertSetup.status, "ready");
-  assert.equal(f.applies(), 1);
+  assert.equal(f.applies(), 2, "listening starts first, then the answer applies");
 });

@@ -11,12 +11,14 @@ export function cleanAlertProfile(value) {
 }
 
 export function alertProfileFor(slot) {
-  const profile = slot.alertSetup?.profile;
-  if (!profile) return null;
+  const setup = slot.alertSetup;
+  if (!setup) return null;
+  // Until the AI answers, the shared safety net listens so a slow model leaves no silent gap.
+  const profile = setup.profile ?? { name: "이 탭의 알림", summaryFocus: "", rules: [] };
   const rules = profile.rules.filter(rule => rule.enabled);
-  if (!rules.length) return null;
   // A scope the user chose or edited must stay exact.
-  const broad = !slot.alertSetup.edited && !slot.alertSetup.request;
+  const broad = !setup.edited && !setup.request;
+  if (!rules.length && (setup.profile || !broad)) return null;
   return { ...profile, id: `auto-${slot.tabId}`, keywords: profile.keywords ?? [], aliases: {}, requireEvidence: true,
     watchPhrases: [...(profile.watchPhrases ?? []), ...(broad ? BROAD_PHRASES : [])],
     condition: [...rules.map(rule => rule.text), ...(broad ? [BROAD_RULE] : [])].join("\n또는: "),
@@ -51,6 +53,7 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
     slot.profileId = "auto";
     const current = () => slots().includes(slot) && slot.alertSetup === setup && slot.profileId === "auto";
     await publish();
+    if (!setup.profile) void Promise.resolve(apply()).catch(() => {});
     try {
       let page = {};
       setup.scanError = "";
