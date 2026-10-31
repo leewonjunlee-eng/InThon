@@ -411,10 +411,6 @@ html.extension-popup { width: 460px; height: 600px; }
 /* Match the shared wireframe baseline across sound and settings pages. */
 #ab-mock .sound-settings .setting-row,
 #ab-mock .sound-settings .setting-volume { border-top: 0; }
-#ab-mock .built-in-presets { gap: 0; }
-#ab-mock .built-in-presets .preset-item { border: 0; border-radius: 0; padding: 10px 0; min-height: 40px; }
-#ab-mock .built-in-presets .preset-item + .preset-item { border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
-#ab-mock .built-in-presets .preset-copy .sub { display: none; }
 @media (max-width: 380px) {
   #ab-mock main { padding: 12px 14px 20px; }
 }
