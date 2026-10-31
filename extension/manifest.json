@@ -35,6 +35,7 @@
         "https://*/*"
       ],
       "js": [
+        "inbox.js",
         "content.js"
       ],
       "run_at": "document_idle"

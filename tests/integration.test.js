@@ -8,6 +8,7 @@ test('frontend selection connects only its active tab and preserves audio contro
   let windowFocused = true;
   let focusedWindowId = 1;
   let blockedTabId = null;
+  const inboxMessages = [];
   const contentMessages = [], notifications = new Map();
   const engineCommands = [], scannedTabs = [], aiRequests = [], popupRequests = [];
   const tabs = [
@@ -41,7 +42,7 @@ test('frontend selection connects only its active tab and preserves audio contro
       query: async query => query.active ? tabs.filter(tab => tab.id === activeId && (query.windowId === undefined || tab.windowId === query.windowId)) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
       onActivated: { addListener(fn) { tabActivated = fn; } }, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
-      sendMessage: async (id, message) => { if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); contentMessages.push({ id, ...message }); return { ok: true }; },
+      sendMessage: async (id, message) => { if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return { ok: true }; },
     },
     windows: { getLastFocused: async () => ({ id: focusedWindowId, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
     offscreen: { hasDocument: async () => true },
@@ -174,6 +175,17 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment', moment: { ...moment, id: 'quiet-event' } });
     assert.equal(contentMessages.length, beforeDismissedUpdate, 'DND stores events without showing cards');
     assert.equal(latest.moments[0].id, 'quiet-event');
+    assert.equal(latest.dndInbox.length, 1);
+    assert.equal(inboxMessages.at(-1).inbox.enabled, true);
+    assert.equal(inboxMessages.at(-1).inbox.items[0].id, 'quiet-event');
+    await emit({ type: 'moment-update', moment: { ...moment, id: 'quiet-event', summary: '보완된 요약' } });
+    assert.equal(latest.dndInbox[0].summary, '보완된 요약');
+    const cleared = await send('clear-dnd-inbox');
+    assert.deepEqual(cleared.result.items, []);
+    assert.equal(latest.dndInbox.length, 0);
+    await emit({ type: 'moment-update', moment: { ...moment, id: 'quiet-event' } });
+    assert.equal(latest.dndInbox.length, 0, 'late summary does not resurrect cleared inbox');
+
     windowFocused = false;
     await send('settings', { patch: { dnd: false } });
     await emit({ type: 'moment', moment: { ...moment, id: 'system-1' } });

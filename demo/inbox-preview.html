@@ -1,0 +1,16 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CatchSound · 방해 금지 알림함 미리보기</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#f6f5fa;color:#242432;font:15px/1.7 system-ui,sans-serif}header{background:white;border-bottom:1px solid #e5e3ed;padding:22px 28px}header strong{font-size:20px}header p{margin:4px 0 14px;color:#777386;font-size:13px}.controls{display:flex;gap:8px;flex-wrap:wrap}button{font:inherit;border:1px solid #dedee8;border-radius:9px;background:white;color:#6254d8;padding:8px 14px;cursor:pointer}button[aria-pressed=true]{background:#6254d8;color:white;border-color:#6254d8}main{max-width:750px;margin:40px auto;padding:0 24px}article{background:white;border:1px solid #e7e5ee;border-radius:16px;padding:32px}h1{font-size:25px;margin:0 0 18px}h2{font-size:16px;margin-top:28px}article p{color:#6e6b7e}small{color:#888496}#result{min-height:24px;margin:12px 0;font-size:13px;color:#6254d8}</style>
+<header><strong>CatchSound · 알림함 미리보기</strong><p>일반 크롬 웹페이지에 표시될 모습입니다. 아래 알림은 테스트용 샘플이에요.</p><div class="controls"><button id="toggle" aria-pressed="true">방해 금지 켜짐</button><button id="add">샘플 알림 추가</button><button id="reset">샘플 8개 채우기</button></div><div id="result" role="status">왼쪽 아래 종 버튼을 눌러보세요.</div></header>
+<main><article><small>작업 중인 웹페이지 예시</small><h1>지금 하는 일에 집중하세요.</h1><p>방해 금지를 켜두면 중요한 순간의 알림이 작업을 가리지 않고 왼쪽 아래에 모입니다.</p><h2>모아둔 내용은 필요할 때 확인</h2><p>보라색 종을 누르면 알림 목록이 위로 열립니다. 최신 알림부터 확인하고, 스크롤해서 이전 알림도 볼 수 있어요.</p><h2>읽고 나면 한 번에 정리</h2><p>‘전부 지우기’를 누르면 목록과 숫자가 함께 비워집니다. 방해 금지를 끄면 종 버튼도 숨겨집니다.</p></article></main>
+<script>
+let listener, enabled=true, items=[], sequence=0;
+const samples=[['게임','한타','양 팀이 주요 목표 앞에서 교전을 시작했습니다. 지원 병력이 합류하면서 승부가 갈리고 있습니다.'],['강의','제출 기한','다음 주 금요일 오후 6시까지 보고서를 제출해야 합니다. 제출 파일 형식과 평가 기준도 함께 안내했습니다.'],['스포츠','역전','경기 막판 득점으로 역전에 성공했습니다. 남은 시간의 수비가 중요한 상황입니다.'],['회의','일정 변경','다음 회의가 목요일 오전 10시로 변경됐습니다. 검토 자료는 전날까지 공유하기로 했습니다.']];
+function sample(){const [topic,keyword,summary]=samples[sequence%4];return{id:`sample-${++sequence}`,topic,keyword,summary,time:`14:${String(sequence).padStart(2,'0')}`};}
+for(let i=0;i<8;i++)items.unshift(sample());
+const data=()=>({enabled,items:structuredClone(items)});
+function publish(){listener?.({to:'content',cmd:'dnd-inbox',inbox:data()},{},()=>{});}
+window.chrome={runtime:{getURL:path=>'/extension/'+path,onMessage:{addListener(fn){listener=fn;}},async sendMessage(message){if(message.cmd==='clear-dnd-inbox'){items=[];publish();document.getElementById('result').textContent='알림을 모두 지웠어요.';}return{ok:true,result:data()};}}};
+document.getElementById('toggle').onclick=event=>{enabled=!enabled;event.target.textContent=enabled?'방해 금지 켜짐':'방해 금지 꺼짐';event.target.setAttribute('aria-pressed',enabled);publish();};
+document.getElementById('add').onclick=()=>{if(!enabled){document.getElementById('result').textContent='방해 금지를 켜면 알림이 쌓여요.';return;}items.unshift(sample());publish();document.getElementById('result').textContent=`샘플 알림 ${items.length}개가 쌓였어요.`;};
+document.getElementById('reset').onclick=()=>{items=[];for(let i=0;i<8;i++)items.unshift(sample());publish();document.getElementById('result').textContent='샘플 알림 8개를 채웠어요.';};
+</script><script src="/extension/inbox.js"></script></html>

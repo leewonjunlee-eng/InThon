@@ -23,6 +23,7 @@ const initialState = () => ({
   snapshot: null,
   view: { tabId: null, title: "", host: "", topic: null, focused: true },
   moments: [],
+  dndInbox: [],
   closedAlertIds: [],
   returnSummary: null,
   transcript: [],
@@ -59,7 +60,7 @@ const focusSuggestion = createFocusSuggestion({
     const message = { to: "content", cmd: "focus-suggestion", tabId: candidate.tabId, title: candidate.title };
     try { await chrome.tabs.sendMessage(candidate.tabId, message); }
     catch {
-      await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["content.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["inbox.js", "content.js"] });
       if (focusCandidate()?.tabId === candidate.tabId) await chrome.tabs.sendMessage(candidate.tabId, message);
     }
   },
@@ -111,9 +112,30 @@ async function restoreState() {
   return state;
 }
 
+let inboxSignature = "";
+const inboxState = () => ({ enabled: state.settings.dnd, items: state.dndInbox });
+async function syncInbox(force = false) {
+  const inbox = inboxState();
+  const signature = JSON.stringify(inbox);
+  if (!force && signature === inboxSignature) return;
+  inboxSignature = signature;
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.filter(tab => /^https?:/.test(tab.url || "")).map(async tab => {
+    const message = { to: "content", cmd: "dnd-inbox", inbox };
+    try { await chrome.tabs.sendMessage(tab.id, message); }
+    catch {
+      if (!inbox.enabled || tab.id !== state.view.tabId) return;
+      try {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inbox.js", "content.js"] });
+        await chrome.tabs.sendMessage(tab.id, message);
+      } catch { /* Chrome-protected pages cannot host the inbox. */ }
+    }
+  }));
+}
 async function commit() {
   const { settings, rules, customProfiles, seenGuide, ...session } = state;
   await chrome.storage.session.set({ session });
+  await syncInbox();
   await chrome.storage.local.set({ saved: { settings, rules, customProfiles, seenGuide } });
   const available = (await chrome.tabs.query({})).filter(tab => /^https?:/.test(tab.url || ""));
   const audible = available.filter(tab => tab.audible);
@@ -380,7 +402,7 @@ async function showCard(tabId, moment, index) {
   } catch {
     // 설치 전에 열린 탭에는 콘텐츠 스크립트가 없다.
     try {
-      await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["inbox.js", "content.js"] });
       await chrome.tabs.sendMessage(tabId, message);
       return true;
     } catch {
@@ -394,6 +416,7 @@ async function onEngineEvent(event) {
     if (state.closedAlertIds.includes(event.moment.id)) return;
     const existing = state.moments.find(moment => moment.id === event.moment.id);
     const moment = { ...event.moment, expiresAt: existing?.expiresAt ?? (state.settings.dnd ? null : Date.now() + ALERT_LIFETIME_MS) };
+    if (state.settings.dnd) state.dndInbox = [moment, ...state.dndInbox.filter(item => item.id !== moment.id)];
     state.moments = [moment, ...state.moments.filter(item => item.id !== moment.id)].slice(0, 30);
     if (moment.expiresAt) {
       scheduleAlertExpiry(moment);
@@ -401,8 +424,10 @@ async function onEngineEvent(event) {
       await alertMoment(moment);
     }
   } else if (event.type === "moment-update") {
+    const inboxIndex = state.dndInbox.findIndex(item => item.id === event.moment.id);
+    if (inboxIndex >= 0) state.dndInbox[inboxIndex] = { ...event.moment, expiresAt: null };
     const index = state.moments.findIndex(item => item.id === event.moment.id);
-    if (index < 0) return;
+    if (index < 0) { if (inboxIndex >= 0) await commit(); return; }
     const expiresAt = state.moments[index].expiresAt;
     if (expiresAt && expiresAt <= Date.now()) return;
     state.moments[index] = { ...event.moment, expiresAt };
@@ -433,6 +458,13 @@ async function createProfile(request) {
 }
 
 const commands = {
+  "clear-dnd-inbox": async () => {
+    const ids = new Set(state.dndInbox.map(item => item.id));
+    state.dndInbox = [];
+    state.moments = state.moments.filter(item => !ids.has(item.id));
+    await commit();
+    return inboxState();
+  },
   "accept-focus-suggestion": async ({ tabId }) => {
     await refreshView();
     if (focusCandidate()?.tabId !== tabId) throw new Error("현재 보고 있는 대기 탭에서 다시 시도해 주세요.");
@@ -580,6 +612,10 @@ async function run(cmd, payload) {
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message.to !== "bg") return false;
+  if (message.cmd === "get-dnd-inbox") {
+    load().then(() => respond({ ok: true, result: inboxState() }));
+    return true;
+  }
   if (message.cmd === "config") {
     load().then((loaded) => respond(loaded.settings));
     return true;
@@ -600,6 +636,7 @@ async function onViewChanged() {
   await refreshView();
   await applyRoles();
   await moveOpenAlerts();
+  await syncInbox(true);
 }
 
 chrome.tabs.onActivated.addListener(onViewChanged);
