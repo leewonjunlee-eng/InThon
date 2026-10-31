@@ -89,12 +89,14 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal((await send('connect', { index: 1, tabId: 12 })).ok, false, 'cannot capture twice');
     assert.equal(latest.manual, 0, 'second connection preserves existing focus');
     await tabActivated();
-    assert.equal(latest.manual, null, 'auto mode releases connection focus when another tab is viewed');
+    assert.equal(latest.manual, 0, 'viewing a standby tab preserves focus pending confirmation');
+    assert.equal(latest.slots[1].role, 'standby');
+    assert.equal((await send('accept-focus-suggestion', { tabId: 12 })).ok, true);
     assert.equal(latest.slots[1].role, 'main');
     await send('focus', { index: 0 });
     activeId = 12;
     await tabActivated();
-    assert.equal(latest.manual, null, 'explicit focus does not lock subsequent automatic navigation');
+    assert.equal(latest.manual, 0, 'navigation alone never accepts a focus suggestion');
     await send('settings', { patch: { auto: false } });
     await send('focus', { index: 0 });
     activeId = 12;
@@ -103,11 +105,11 @@ test('frontend selection connects only its active tab and preserves audio contro
     await send('pin', { index: 0 });
     await send('peek', { index: 0 });
     await send('settings', { patch: { auto: true } });
-    assert.equal(latest.manual, null);
+    assert.equal(latest.manual, 0);
     assert.equal(latest.peek, null);
     assert.equal(latest.snapshot, null);
     assert.equal(latest.slots[0].pinned, false);
-    assert.equal(latest.slots[1].role, 'main', 'enabling automatic mode immediately follows the viewed tab');
+    assert.equal(latest.slots[1].role, 'standby', 'enabling suggestions does not change focus');
     await send('focus', { index: 0 });
     activeId = 12;
 

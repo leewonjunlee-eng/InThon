@@ -1,3 +1,4 @@
+import { createFocusSuggestion } from "./lib/focus-suggestion.js";
 import { removeSlot } from "./lib/slots.js";
 import { savePreset, deletePreset } from "./lib/presets.js";
 import { reopenPopupAfterConnect } from "./lib/popup-recovery.js";
@@ -40,6 +41,26 @@ function queueAlert(action) {
   alertQueue = result;
   return result;
 }
+
+function focusCandidate() {
+  if (!state?.settings.auto || state.settings.dnd || !state.view.focused || state.peek !== null) return null;
+  const slot = state.slots.find(slot => slot.tabId === state.view.tabId && slot.role === "standby");
+  return slot ? { tabId: slot.tabId, title: slot.title } : null;
+}
+const focusSuggestion = createFocusSuggestion({
+  read: focusCandidate,
+  clear: tabId => chrome.tabs.sendMessage(tabId, { to: "content", cmd: "focus-suggestion-clear" }).catch(() => {}),
+  show: async candidate => {
+    await refreshView();
+    if (focusCandidate()?.tabId !== candidate.tabId) return;
+    const message = { to: "content", cmd: "focus-suggestion", tabId: candidate.tabId, title: candidate.title };
+    try { await chrome.tabs.sendMessage(candidate.tabId, message); }
+    catch {
+      await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["content.js"] });
+      if (focusCandidate()?.tabId === candidate.tabId) await chrome.tabs.sendMessage(candidate.tabId, message);
+    }
+  },
+});
 
 const api = createApi(async () => (await load()).settings);
 
@@ -175,7 +196,7 @@ async function pushOutputs() {
 async function applyRoles({ immediate = false } = {}) {
   clearTimeout(standbyTimer);
   const roles = computeRoles({
-    slots: state.slots, view: state.view, manual: state.manual, peek: state.peek, auto: state.settings.auto,
+    slots: state.slots, view: state.view, manual: state.manual, peek: state.peek, auto: state.settings.auto, confirmAuto: true,
   });
   let lowering = false;
   state.slots.forEach((slot, i) => {
@@ -185,6 +206,7 @@ async function applyRoles({ immediate = false } = {}) {
   if (lowering) standbyTimer = setTimeout(() => load().then(() => applyRoles({ immediate: true })), STANDBY_DELAY_MS);
   await pushOutputs();
   await commit();
+  focusSuggestion.update();
 }
 
 async function refreshView() {
@@ -372,6 +394,11 @@ async function createProfile(request) {
 }
 
 const commands = {
+  "accept-focus-suggestion": async ({ tabId }) => {
+    await refreshView();
+    if (focusCandidate()?.tabId !== tabId) throw new Error("현재 보고 있는 대기 탭에서 다시 시도해 주세요.");
+    await focusSlot(slotIndex(tabId));
+  },
   "remove-slot": async ({ index }) => {
     const slot = removeSlot(state, index);
     const { uiSelections = [] } = await chrome.storage.session.get("uiSelections");
@@ -484,7 +511,8 @@ const commands = {
     if ("serverUrl" in patch || "token" in patch) patch = { ...patch, ...normalizeConnection({ ...state.settings, ...patch }) };
     Object.assign(state.settings, patch);
     if (patch.auto === true) {
-      state.manual = null;
+      const focused = state.slots.findIndex(slot => slot.tabId !== null && slot.role === "main");
+      state.manual = focused >= 0 ? focused : null;
       state.peek = null;
       state.snapshot = null;
       state.slots.forEach(slot => { slot.pinned = false; });
@@ -534,10 +562,6 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
 async function onViewChanged() {
   await load();
   await refreshView();
-  // A focus command applies now, but must not lock later navigation in auto mode.
-  if (state.settings.auto && (!state.view.focused || state.slots[state.manual]?.tabId !== state.view.tabId)) {
-    state.manual = null;
-  }
   await applyRoles();
 }
 

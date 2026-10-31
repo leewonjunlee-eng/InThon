@@ -135,6 +135,31 @@ if (!globalThis.audioFocusLoaded) {
     });
     updateSummary(moment);
   }
+  function showFocusSuggestion(message) {
+    mount("focus-suggestion", (card, close) => {
+      card.className = "card compact";
+      const head = document.createElement("div"); head.className = "head";
+      const brand = text("span", ""); brand.className = "brand";
+      const logo = document.createElement("img"); logo.src = chrome.runtime.getURL("icons/brand.png"); logo.alt = "";
+      brand.append(logo, text("span", "CatchSound"));
+      const dismiss = action("×", close); dismiss.className = "close"; dismiss.setAttribute("aria-label", "알림 닫기");
+      head.append(brand, dismiss);
+      const source = text("p", message.title); source.className = "source";
+      const detail = text("p", "대기 탭을 보고 있어요. 집중 탭과 음량을 바꿀까요?"); detail.className = "preview";
+      const errorNode = text("p", ""); errorNode.className = "status error";
+      const row = document.createElement("div"); row.className = "row";
+      const focus = action("이 탭에 집중", async () => {
+        focus.disabled = true;
+        try {
+          const reply = await chrome.runtime.sendMessage({ to: "bg", cmd: "accept-focus-suggestion", tabId: message.tabId });
+          if (!reply?.ok) throw new Error(reply?.error || "집중 탭을 바꾸지 못했습니다.");
+          close();
+        } catch (error) { errorNode.textContent = error.message; focus.disabled = false; }
+      }, true);
+      row.append(focus, action("유지하기", close));
+      card.append(head, source, text("h1", "이 탭에 집중할까요?"), detail, row, errorNode);
+    });
+  }
   function showPip() {
     const video = [...document.querySelectorAll("video")].sort((a, b) => b.clientWidth - a.clientWidth)[0];
     mount("pip", (card, close) => {
@@ -147,13 +172,15 @@ if (!globalThis.audioFocusLoaded) {
   }
 
   function clearMoment(id) {
-    for (const key of id ? [id] : [...openCards.keys()]) if (key !== "pip") closeCard(key);
+    for (const key of id ? [id] : [...openCards.keys()]) if (key !== "pip" && key !== "focus-suggestion") closeCard(key);
   }
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message.to !== "content") return false;
     if (message.cmd === "moment" && message.moment) showMoment(message);
     if (message.cmd === "moment-update" && message.moment) updateSummary(message.moment);
     if (message.cmd === "moment-clear") clearMoment(message.id);
+    if (message.cmd === "focus-suggestion") showFocusSuggestion(message);
+    if (message.cmd === "focus-suggestion-clear") closeCard("focus-suggestion");
     if (message.cmd === "pip") showPip();
     respond({ ok: true });
     return false;

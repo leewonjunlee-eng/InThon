@@ -142,7 +142,7 @@ function volumeSetting(name, title) {
   return `<label class="setting-volume"><span class="row"><span>${title}</span><output id="setting-${name}">${state.settings[name]}%</output></span><input type="range" min="0" max="100" value="${state.settings[name]}" data-setting-range="${name}" aria-label="${title}"></label>`;
 }
 function renderGeneral() {
-  return `<section class="settings-section sound-settings"><h3>음향</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 자동 전환")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
+  return `<section class="settings-section sound-settings"><h3>음향</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 집중 전환 제안", "대기 탭을 3초 이상 보면 물어봐요. 확인해야 음량이 바뀝니다.")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
     <section class="settings-section"><h3>알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}</div></section>
     <details class="settings-advanced" data-profile-detail="advanced"><summary>고급 설정</summary><div class="settings-card">${settingsSwitch("screen", "화면 변화 감지", "이미지가 서버로 전송돼요. 변경 후 탭을 다시 연결해 주세요.")}</div><p class="sub">단축키: Ctrl+Shift+K 연결 · Ctrl+Shift+→ 집중 전환 · Ctrl+Shift+← 복귀</p></details>`;
 }

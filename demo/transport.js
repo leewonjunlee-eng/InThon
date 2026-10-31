@@ -59,7 +59,7 @@ export function createPreviewTransport() {
     publish();
   }
   function apply() {
-    const roles = computeRoles({ ...state, auto: state.settings.auto });
+    const roles = computeRoles({ ...state, auto: state.settings.auto, confirmAuto: true });
     state.slots.forEach((slot, i) => {
       slot.role = roles[i];
       if (slot.tabId === null || !engine) return;
@@ -165,7 +165,8 @@ export function createPreviewTransport() {
           if ("serverUrl" in payload.patch || "token" in payload.patch) payload.patch = { ...payload.patch, ...normalizeConnection({ ...state.settings, ...payload.patch }) };
           Object.assign(state.settings, payload.patch);
           if (payload.patch.auto === true) {
-            state.manual = null;
+            const focused = state.slots.findIndex(slot => slot.tabId !== null && slot.role === "main");
+            state.manual = focused >= 0 ? focused : null;
             state.peek = null;
             state.snapshot = null;
             state.slots.forEach(slot => { slot.pinned = false; });

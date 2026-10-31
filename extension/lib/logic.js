@@ -103,13 +103,14 @@ export function classify({ url, title }, rules, profiles) {
 }
 
 // 잠깐 확인 > 고정 > 수동 집중 > 보는 탭 기준 자동 전환
-export function computeRoles({ slots, view, manual, peek, auto }) {
+export function computeRoles({ slots, view, manual, peek, auto, confirmAuto = false }) {
   return slots.map((slot, i) => {
     if (slot.tabId === null) return null;
     if (peek !== null) return i === peek ? "main" : "standby";
     if (slot.pinned) return "main";
     if (manual !== null) return i === manual ? "main" : "standby";
     if (!auto) return "main";
+    if (confirmAuto) return slot.role ?? "standby";
     if (!view.focused) return "standby";
     if (view.tabId === slot.tabId) return "main";
     const shared = view.topic && view.topic !== "기타" && view.topic === slot.topic;

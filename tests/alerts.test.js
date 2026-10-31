@@ -64,4 +64,18 @@ test('alert stays until a button, stacks new events, and ignores late updates', 
   emit('moment', second);
   listener({ to: 'content', cmd: 'moment-clear', id: null }, {}, () => {});
   assert.equal(root.children.length, 0, 'clearing without an id closes every card');
+  listener({ to: 'content', cmd: 'focus-suggestion', tabId: 12, title: '대기 탭' }, {}, () => {});
+  assert(walk(root).some(node => node.textContent === '이 탭에 집중할까요?'));
+  assert.equal(sent.length, 1, 'showing a suggestion does not change focus');
+  walk(root).find(node => node.textContent === '유지하기').onclick();
+  assert.equal(root.children.length, 0);
+  assert.equal(sent.length, 1);
+  listener({ to: 'content', cmd: 'focus-suggestion', tabId: 12 }, {}, () => {});
+  await walk(root).find(node => node.textContent === '이 탭에 집중').onclick();
+  assert.equal(sent.at(-1).cmd, 'accept-focus-suggestion');
+  assert.equal(sent.at(-1).tabId, 12);
+  listener({ to: 'content', cmd: 'focus-suggestion', tabId: 12 }, {}, () => {});
+  listener({ to: 'content', cmd: 'focus-suggestion-clear' }, {}, () => {});
+  assert.equal(root.children.length, 0, 'leaving clears the suggestion');
+
 });
