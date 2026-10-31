@@ -5,6 +5,7 @@ if (!globalThis.audioFocusLoaded) {
   let summaryNode = null;
   let evidenceNode = null;
   let statusNode = null;
+  let fullSummaryNode = null;
   const STYLE = `
     .card { position: fixed; top: 12px; right: 12px; width: min(300px, calc(100vw - 44px)); max-height: calc(100vh - 48px); overflow: auto; z-index: 2147483647; background: #fff; color: #242432;
       border: 1px solid #dedee8; border-radius: 12px; box-shadow: 0 12px 40px #24243233; padding: 12px;
@@ -19,6 +20,23 @@ if (!globalThis.audioFocusLoaded) {
     button { font: inherit; min-height: 34px; border: 1px solid #dedee8; border-radius: 8px; background: #fff; cursor: pointer; color: inherit; }
     .solid { background: #6254d8; border-color: #6254d8; color: #fff; }
     button:disabled { opacity: .5; }
+    .compact { box-sizing: border-box; width: min(360px, calc(100vw - 24px)); padding: 10px 14px; display: block; }
+    .compact .head { align-items: center; gap: 6px; margin-bottom: 3px; }
+    .brand { color: #242432; font-size: 13px; font-weight: 650; letter-spacing: -.3px; }
+    .time { margin-left: auto; font-size: 11px; }
+    .compact .close { border: 0; width: 28px; min-height: 28px; padding: 0; margin-right: -5px; font-size: 20px; line-height: 1; color: #737385; }
+    .source { color: #6254d8; font-size: 11px; margin-bottom: 3px; }
+    .compact h1 { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+    .preview { margin-top: 3px; color: #737385; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+    .compact details { margin-top: 5px; }
+    .compact summary { padding: 2px 0; font-size: 11px; color: #737385; cursor: pointer; }
+    .detail-body { display: grid; gap: 6px; margin-top: 6px; }
+    .compact blockquote { overflow-wrap: anywhere; }
+    .compact .row { grid-template-columns: 1fr auto; margin-top: 8px; }
+    .compact .row button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: 7px; background: #eeebff; color: #6254d8; }
+    .compact .row .solid { background: #6254d8; color: #fff; }
+    .error:not(:empty) { margin-top: 6px; }
+    @media (pointer: coarse) { .compact .close, .compact .row button, .compact summary { min-height: 44px; } .compact .close { width: 44px; } }
   `;
   function mount(build) {
     document.getElementById("audio-focus-card")?.remove();
@@ -52,6 +70,7 @@ if (!globalThis.audioFocusLoaded) {
   function updateSummary(moment) {
     if (currentMomentId !== moment.id || !document.getElementById("audio-focus-card")) return;
     summaryNode.textContent = moment.summary;
+    fullSummaryNode.textContent = moment.summary;
     const evidence = Array.isArray(moment.evidence) ? moment.evidence : [];
     evidenceNode.textContent = evidence.join("\n");
     evidenceNode.hidden = !evidence.length || moment.summaryStatus === "loading" || moment.summaryStatus === "fallback";
@@ -65,14 +84,27 @@ if (!globalThis.audioFocusLoaded) {
   function showMoment({ moment }) {
     currentMomentId = moment.id;
     mount((card, close) => {
+      card.className = "card compact";
       const head = document.createElement("div");
       head.className = "head";
-      head.append(text("span", `Catch Sound · ${moment.topic}`), text("span", moment.time));
+      const brand = text("span", "catchsound"); brand.className = "brand";
+      const time = text("span", moment.time); time.className = "time";
+      const dismiss = action("×", close); dismiss.className = "close";
+      dismiss.setAttribute("aria-label", "알림 닫기");
+      head.append(brand, time, dismiss);
+      const source = text("p", moment.topic); source.className = "source";
       statusNode = text("p", ""); statusNode.className = "status";
       summaryNode = text("p", ""); evidenceNode = text("blockquote", "");
-      const errorNode = text("p", ""); errorNode.className = "status";
+      summaryNode.className = "preview";
+      fullSummaryNode = text("p", "");
+      const details = document.createElement("details");
+      const detailBody = document.createElement("div"); detailBody.className = "detail-body";
+      detailBody.append(statusNode, fullSummaryNode, evidenceNode);
+      details.append(text("summary", "감지한 내용 보기"), detailBody);
+      const errorNode = text("p", ""); errorNode.className = "status error";
+      errorNode.setAttribute("role", "alert");
       const row = document.createElement("div"); row.className = "row";
-      const focus = action("여기에 집중", async () => {
+      const focus = action("이 탭에 집중", async () => {
         focus.disabled = true;
         try {
           const reply = await chrome.runtime.sendMessage({ to: "bg", cmd: "focus", tabId: moment.tabId });
@@ -81,7 +113,7 @@ if (!globalThis.audioFocusLoaded) {
         } catch (error) { errorNode.textContent = error.message; focus.disabled = false; }
       }, true);
       row.append(focus, action("나중에", close));
-      card.append(head, text("h1", moment.keyword ? `"${moment.keyword}" 감지` : "중요한 순간일 수 있어요"), statusNode, summaryNode, evidenceNode, row, errorNode);
+      card.append(head, source, text("h1", moment.keyword ? `"${moment.keyword}" 감지` : "중요한 순간일 수 있어요"), summaryNode, details, row, errorNode);
     });
     updateSummary(moment);
   }
