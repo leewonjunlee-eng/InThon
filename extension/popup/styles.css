@@ -1,12 +1,12 @@
 #ab-mock {
   box-sizing: border-box;
-  --bg: light-dark(#ffffff, #242426);
-  --ink: light-dark(#242432, #e8e7ed);
-  --muted: light-dark(#737385, #aaa7b5);
-  --line: light-dark(#dedee8, #414047);
-  --soft: light-dark(#f5f4fa, #2d2c32);
+  --bg: light-dark(#ffffff, #22232b);
+  --ink: light-dark(#242432, #f2f1fa);
+  --muted: light-dark(#737385, #b3b1c6);
+  --line: light-dark(#dedee8, #484657);
+  --soft: light-dark(#f5f4fa, #2e2c3b);
   --brand: light-dark(#6254d8, #b6aaff);
-  --tint: light-dark(#eeebff, #393247);
+  --tint: light-dark(#eeebff, #38324f);
   font:
     14px/1.5 system-ui,
     sans-serif;
@@ -194,18 +194,15 @@
 }
 
 :root {
-  color-scheme: light dark;
-  --page-bg: light-dark(#f4f3f8, #1c1c1f);
-  --page-dot: light-dark(#d9d7e5, #343238);
-  --tour-backdrop: light-dark(#f5f4fa, #1c1c1f);
+  color-scheme: light;
 }
 body {
   margin: 0;
-  background: var(--page-bg);
+  background: #f4f3f8;
 }
 #ab-mock {
   min-height: 100vh;
-  background-image: radial-gradient(var(--page-dot) 0.8px, transparent 0.8px);
+  background-image: radial-gradient(#d9d7e5 0.8px, transparent 0.8px);
   background-size: 18px 18px;
   padding: 32px 12px;
 }
@@ -233,11 +230,11 @@ body {
   box-shadow: 0 12px 40px #2424320a;
 }
 #ab-mock .focus-card {
-  border-color: var(--brand);
+  border-color: #6254d8;
 }
 #ab-mock .focus-badge {
-  color: var(--brand);
-  background: var(--tint);
+  color: #6254d8;
+  background: #eeebff;
 }
 #ab-mock .demo button {
   font-size: 12px;
@@ -394,7 +391,7 @@ html.extension-popup { width: 460px; height: 600px; overflow: hidden; }
 #ab-mock .preset-heading h3 { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
 #ab-mock .preset-description { background: var(--soft); border-radius: 12px; padding: 14px; white-space: pre-wrap; word-break: keep-all; overflow-wrap: anywhere; }
 #ab-mock .preset-actions { display: grid; gap: 6px; padding-top: 12px; }
-#ab-mock .danger { color: light-dark(#bb3f4c, #f098a1); }
+#ab-mock .danger { color: #bb3f4c; }
 #ab-mock #notice:empty { display: none; }
 
 #ab-mock .add-slot { border-style: dashed; background: var(--tint); color: var(--brand); padding: 12px; }
@@ -428,15 +425,7 @@ html.extension-popup { width: 460px; height: 600px; overflow: hidden; }
 #ab-mock .slot-actions > :nth-child(2) { justify-self: center; }
 #ab-mock .slot-actions > :last-child { justify-self: end; }
 
-#ab-mock .shortcut-help { font-size: clamp(8px, 1.9vw, 10px); text-align: center; white-space: nowrap; overflow-x: auto; color: var(--ink); border-top: 1px solid var(--line); padding-top: 14px; text-decoration: underline; text-underline-offset: 3px; }
+#ab-mock .shortcut-help { font-size: clamp(8px, 1.9vw, 10px); text-align: center; white-space: nowrap; overflow-x: auto; color: #000; border-top: 1px solid var(--line); padding-top: 14px; text-decoration: underline; text-underline-offset: 3px; }
 #ab-mock .recognition .stack p { margin: 0; }
 #ab-mock .recognition-log { margin: 0; padding: 0; list-style: none; font-size: 12px; overflow-wrap: anywhere; }
 #ab-mock .recognition-log li { padding: 2px 0; }
-
-@media (prefers-color-scheme: dark) {
-  #ab-mock .app { box-shadow: 0 12px 40px #00000024; }
-  #ab-mock button:hover:not(:disabled) { filter: brightness(1.12); }
-  #ab-mock input[type="range"] { accent-color: var(--brand); }
-  #ab-mock .delete-dialog { box-shadow: 0 16px 48px #00000055; }
-  #ab-mock .delete-dialog::backdrop { background: #00000088; }
-}

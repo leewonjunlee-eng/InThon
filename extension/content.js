@@ -35,6 +35,19 @@ if (!globalThis.audioFocusLoaded) {
     .compact .row button { min-height: 30px; padding: 5px 12px; border: 0; border-radius: 7px; background: #eeebff; color: #6254d8; }
     .compact .row .solid { background: #6254d8; color: #fff; }
     .error:not(:empty) { margin-top: 6px; }
+    @media (prefers-color-scheme: dark) {
+      :host { color-scheme: dark; }
+      .card { background:#242426; color:#e8e7ed; border-color:#414047; box-shadow:0 12px 40px #00000040; }
+      .head,.status,.preview,.compact summary,.compact .close { color:#aaa7b5; }
+      .brand { color:#e8e7ed; }
+      .source { color:#b6aaff; }
+      blockquote { background:#2d2c32; color:#c6c3d0; }
+      button { background:#2d2c32; border-color:#414047; color:#e8e7ed; }
+      .compact .row button { background:#393247; color:#c2b6f2; }
+      .solid,.compact .row .solid { background:#6254d8; border-color:#6254d8; color:#fff; }
+      .error { color:#f098a1; }
+      button:focus-visible,summary:focus-visible { outline:2px solid #b6aaff; outline-offset:2px; }
+    }
     @media (pointer: coarse) { .compact .close, .compact .row button, .compact summary { min-height: 44px; } .compact .close { width: 44px; } }
   `;
   function closeCard(key) {
