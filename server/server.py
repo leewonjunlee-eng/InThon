@@ -36,6 +36,7 @@ def load_settings():
 
 
 SETTINGS = load_settings()
+AI_READY = all(SETTINGS[name] for name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL"))
 hits = defaultdict(deque)
 
 
@@ -171,7 +172,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/health":
-            return self.reply(200, {"ok": True})
+            return self.reply(200, {"ok": True, "aiReady": AI_READY})
         target = (ROOT / unquote(path).lstrip("/")).resolve()
         if path == "/":
             target = ROOT / "demo" / "index.html"
@@ -189,6 +190,8 @@ class Handler(BaseHTTPRequestHandler):
         route = ROUTES.get(self.path)
         if not route:
             return self.reply(404, {"error": "not found"})
+        if not AI_READY:
+            return self.reply(503, {"error": "AI 서버 주소, API 키, 모델명을 설정해 주세요."})
         token = SETTINGS["AUDIO_FOCUS_TOKEN"]
         if token and not hmac.compare_digest(self.headers.get("X-Demo-Token", ""), token):
             return self.reply(401, {"error": "invalid token"})
@@ -214,8 +217,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument("--allow-no-ai", action="store_true", help="Run the UI and audio preview without AI credentials")
     args = parser.parse_args()
-    if not all(SETTINGS[name] for name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", "OPENAI_MODEL")):
+    if not AI_READY and not args.allow_no_ai:
         raise SystemExit("Missing OPENAI_* settings in .env or environment")
     print(f"Catch Sound server on http://{args.host}:{args.port}", flush=True)
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()

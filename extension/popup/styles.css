@@ -301,30 +301,6 @@ body {
   }
 }
 
-/* 툴바 아이콘을 눌렀을 때만 뜨는 작은 팝업 */
-html {
-  width: 340px;
-}
-#ab-mock {
-  padding: 0;
-  background-image: none;
-}
-#ab-mock .app {
-  height: 460px;
-  min-height: 460px;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-#ab-mock header {
-  padding: 10px 14px;
-}
-#ab-mock main {
-  padding: 12px;
-}
-#ab-mock .app > footer {
-  padding: 8px 14px;
-}
 #ab-mock .stack {
   display: grid;
   gap: 6px;
@@ -378,3 +354,11 @@ html {
   font-size: 12px;
   pointer-events: none;
 }
+
+/* The same frontend shell is used by the browser preview and Chrome popup. */
+html.extension-popup { width: 460px; height: 600px; }
+.extension-popup #ab-mock { min-height: 600px; padding: 12px; }
+.extension-popup #ab-mock .app { height: 576px; min-height: 0; }
+.extension-popup .caption { display: none; }
+#ab-mock .source, #ab-mock .choice { overflow-wrap: anywhere; min-width: 0; }
+#ab-mock select:focus-visible { outline: 3px solid #a99deb; outline-offset: 3px; }

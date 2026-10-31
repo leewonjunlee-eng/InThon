@@ -1,4 +1,9 @@
-"use strict";
+import { createTransport } from "../lib/transport.js";
+const transport = await createTransport();
+if (transport.isExtension) document.documentElement.classList.add("extension-popup");
+let selections = await transport.getSelections();
+let picker = null;
+let pending = null;
 const root = document.getElementById("ab-mock");
 const main = document.getElementById("ab-content");
 let state = null;
@@ -7,6 +12,7 @@ let notice = "";
 let draft = null;
 let busy = false;
 let dragging = false;
+const connecting = new Set();
 
 const escapeHTML = (value) =>
   String(value ?? "").replace(
@@ -26,10 +32,12 @@ function toggle(name, text) {
   return `<label class="check"><input type="checkbox" data-setting="${name}" ${state.settings[name] ? "checked" : ""}> ${text}</label>`;
 }
 function send(cmd, payload = {}) {
-  return chrome.runtime.sendMessage({ to: "bg", cmd, ...payload });
+  return transport.send(cmd, payload);
 }
 async function act(cmd, payload) {
-  const reply = await send(cmd, payload);
+  let reply;
+  try { reply = await send(cmd, payload); }
+  catch (error) { reply = { ok: false, error: error.message }; }
   if (!reply?.ok) {
     notice = reply?.error ?? "요청을 처리하지 못했어요.";
     render();
@@ -42,27 +50,36 @@ function renderGuide() {
 }
 
 function renderEmptySlot(i) {
-  const view = state.view;
-  const usable = /\S/.test(view.host) && !state.slots.some((slot) => slot.tabId === view.tabId);
-  let html = `<p class="sub">소리가 나는 탭에서 연결해 주세요. 탭마다 처음 한 번만 하면 됩니다.</p>`;
-  html += button(usable ? `＋ 현재 탭 연결 · ${escapeHTML(view.title).slice(0, 18)}` : "＋ 현재 탭 연결", `connect:${i}`, "solid full", !usable);
-  for (const other of state.audible.filter((item) => item.id !== view.tabId)) {
-    html += button(`<span>${escapeHTML(other.title)}<span class="sub">${escapeHTML(other.host)} · 소리 나는 중</span></span><span class="sub">이동</span>`, `goto:${other.id}`, "choice full");
+  const source = selections[i];
+  if (!source) return `<p class="sub">이 자리에 들을 소리를 넣어주세요.</p>${button("＋ 연결할 탭 고르기", `pick:${i}`, "full")}`;
+  const current = !transport.isExtension || source.id === state.view.tabId;
+  return `<div class="source"><strong>${escapeHTML(source.title)}</strong><span class="sub">${escapeHTML(source.host)}</span></div><div class="two">${button("다른 탭 선택", `pick:${i}`)}${button(current ? `${label(i)} 연결하기` : "선택한 탭으로 이동 ↗", current ? `connect:${i}` : `goto:${source.id}`, "solid", connecting.has(i))}</div>${button("선택 지우기", `clear:${i}`, "quiet")}${!current ? '<p class="sub">선택한 탭으로 이동한 뒤 확장 아이콘을 다시 눌러 연결하세요.</p>' : ''}`;
+}
+
+function renderPicker() {
+  const i = picker;
+  const sources = state.available ?? state.audible;
+  let html = button("← 슬롯으로 돌아가기", "back", "quiet") + `<div class="row"><h3>${label(i)}에 연결할 소리 선택</h3><span class="letter">${label(i)}</span></div><p class="sub">탭을 선택한 뒤 아래 버튼으로 확정하세요.</p><div class="picker">`;
+  for (const source of sources) {
+    const used = state.slots[1-i].tabId === source.id || selections[1-i]?.id === source.id;
+    html += button(`<span>${escapeHTML(source.title)}<span class="sub">${escapeHTML(source.host)}${source.audible ? " · 재생 중" : ""}</span></span><span class="sub">${used ? "다른 슬롯에서 사용 중" : pending === source.id ? "선택됨" : "선택"}</span>`, `select:${source.id}`, "choice", used, `aria-pressed="${pending === source.id}"`);
   }
-  return html;
+  if (!sources.length) html += '<p class="sub">연결할 웹 탭이 없습니다. 먼저 동영상이나 음악 탭을 열어주세요.</p>';
+  return html + `</div>${button(`${label(i)} 슬롯에 선택하기`, "confirm", "solid full", pending === null)}<div class="notice">선택만으로 소리가 연결되지는 않아요. Chrome에서는 선택한 탭에서 확장 아이콘을 눌러 연결합니다.</div>`;
 }
 
 function renderSlot(slot, i) {
   const connected = slot.tabId !== null;
   const main = slot.role === "main";
-  let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="소리 ${label(i)}"><div class="row"><div class="row"><span class="letter">${label(i)}</span><h3>소리 ${label(i)}</h3></div><span class="badge ${main ? "focus-badge" : ""}">${connected ? `${ROLE[slot.role] ?? "연결됨"}${slot.pinned ? " · 고정" : ""}` : "비어 있음"}</span></div>`;
+  const focused = (state.peek ?? state.manual) === i;
+  let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="소리 ${label(i)}"><div class="row"><div class="row"><span class="letter">${label(i)}</span><h3>소리 ${label(i)}</h3></div><span class="badge ${main ? "focus-badge" : ""}">${connected ? `${ROLE[slot.role] ?? "연결됨"}${slot.pinned ? " · 고정" : ""}` : selections[i] ? "선택됨 · 연결 전" : "비어 있음"}</span></div>`;
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
   html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 볼륨</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 볼륨"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
   html += renderMap(slot, i, volume);
-  html += `<div class="two">${button(state.manual === i ? "집중 중" : "여기에 집중", `focus:${i}`, state.manual === i ? "solid" : "", state.manual === i)}${button(slot.muted ? "소리 켜기" : "듣기 음소거", `mute:${i}`, "", false, `aria-pressed="${slot.muted}"`)}</div>`;
+  html += `<div class="two">${button(focused ? "집중 중" : "여기에 집중", `focus:${i}`, focused ? "solid" : "", focused)}${button(slot.muted ? "소리 켜기" : "듣기 음소거", `mute:${i}`, "", false, `aria-pressed="${slot.muted}"`)}</div>`;
   html += `<div class="two">${button(slot.pinned ? "고정 해제" : "메인 고정", `pin:${i}`, "", false, `aria-pressed="${slot.pinned}"`)}${button("잠깐 확인", `peek:${i}`, "", state.peek !== null || main)}</div>`;
   html += `<div class="row">${button("탭으로 이동 ↗", `goto:${slot.tabId}`, "quiet")}${button("소형 플레이어", `pip:${i}`, "quiet")}${button("연결 해제", `stop:${i}`, "quiet")}</div>`;
   return html + "</article>";
@@ -85,7 +102,7 @@ function renderView() {
 function renderSound() {
   const connected = state.slots.filter((slot) => slot.tabId !== null).length;
   let html = "";
-  if (!state.seenGuide) html += renderGuide();
+
   html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / 2 연결됨</span></div>`;
   html += renderView();
   if (state.returnSummary) html += renderReturn();
@@ -146,7 +163,7 @@ function render() {
   if (!state) return;
   const tabs = [["sound", "소리"], ["entrust", "맡기기"], ["moments", `순간 ${state.moments.length || ""}`]];
   let html = `<div class="segments" role="tablist">${tabs.map(([id, text]) => button(text, `tab:${id}`, "", false, `aria-pressed="${tab === id}"`)).join("")}</div>`;
-  html += { sound: renderSound, entrust: renderEntrust, moments: renderMoments }[tab]();
+  html += picker !== null ? renderPicker() : { sound: renderSound, entrust: renderEntrust, moments: renderMoments }[tab]();
   const message = notice || state.status;
   main.innerHTML = html + `<p id="notice" class="status" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
 }
@@ -158,9 +175,36 @@ async function dispatch(action) {
   switch (name) {
     case "tab":
       tab = arg;
+      picker = null;
+      return render();
+    case "pick":
+      picker = i;
+      pending = selections[i]?.id ?? null;
+      return render();
+    case "back":
+      picker = null;
+      return render();
+    case "select":
+      pending = Number(arg);
+      return render();
+    case "confirm": {
+      const source = (state.available ?? state.audible).find(item => item.id === pending);
+      if (!source || state.slots[1-picker].tabId === source.id || selections[1-picker]?.id === source.id) return;
+      selections[picker] = source;
+      await transport.saveSelections(selections);
+      picker = null;
+      return render();
+    }
+    case "clear":
+      selections[i] = null;
+      await transport.saveSelections(selections);
       return render();
     case "connect":
-      return act("connect", { index: i });
+      if (!selections[i] || connecting.has(i)) return;
+      connecting.add(i);
+      render();
+      try { return await act("connect", { index: i, tabId: selections[i].id }); }
+      finally { connecting.delete(i); render(); }
     case "stop":
       return act("disconnect", { index: i });
     case "focus":
@@ -200,14 +244,17 @@ async function dispatch(action) {
 
 root.addEventListener("click", (event) => {
   const target = event.target.closest("[data-action]");
-  if (target && !target.disabled) dispatch(target.dataset.action);
+  if (target && !target.disabled) dispatch(target.dataset.action).catch(error => {
+    notice = error.message;
+    render();
+  });
 });
 root.addEventListener("input", (event) => {
   const { dataset, value } = event.target;
   if (dataset.volume !== undefined) {
     const i = Number(dataset.volume);
     document.getElementById(`volume-${i}`).textContent = `${value}%`;
-    send("volume", { index: i, value: Number(value) });
+    act("volume", { index: i, value: Number(value) });
   }
 });
 root.addEventListener("change", (event) => {
@@ -241,10 +288,12 @@ addEventListener("pointerup", () => {
   dragging = false;
 });
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.to !== "ui") return;
-  state = message.state;
+transport.subscribe((nextState) => {
+  state = nextState;
+  state.slots.forEach((slot, i) => {
+    if (slot.tabId !== null) selections[i] = { id: slot.tabId, title: slot.title, host: slot.host };
+  });
   const editing = ["INPUT", "SELECT"].includes(document.activeElement?.tagName);
   if (!editing && !dragging) render();
 });
-send("state");
+act("state");
