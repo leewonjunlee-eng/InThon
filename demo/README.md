@@ -1,4 +1,4 @@
-# catchsound 통합 웹 체험
+# CatchSound 통합 웹 체험
 
 프로젝트 루트에서 `npm run preview`를 실행하고 http://127.0.0.1:8788/ 을 엽니다.
 
