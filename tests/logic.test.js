@@ -1,0 +1,89 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  DEFAULT_SETTINGS, PROFILES, SurgeDetector, classify, computeRoles, correctTranscript, emptySlot, findKeyword, frameDiff, gainFor, hostOf,
+} from "../extension/lib/logic.js";
+
+const lol = { ...emptySlot(), tabId: 1, topic: "롤" };
+const other = { ...emptySlot(), tabId: 2, topic: "강의" };
+const base = { slots: [lol, other], manual: null, peek: null, auto: true };
+const view = (tabId, topic, focused = true) => ({ tabId, topic, focused });
+
+test("보고 있는 탭과 같은 주제의 소리는 메인을 유지한다", () => {
+  assert.deepEqual(computeRoles({ ...base, view: view(1, "롤") }), ["main", "standby"]);
+  assert.deepEqual(computeRoles({ ...base, view: view(9, "롤") }), ["main", "standby"]);
+});
+
+test("다른 일을 보거나 크롬 밖이면 대기로 내려간다", () => {
+  assert.deepEqual(computeRoles({ ...base, view: view(9, "과제") }), ["standby", "standby"]);
+  assert.deepEqual(computeRoles({ ...base, view: view(9, "기타") }), ["standby", "standby"]);
+  assert.deepEqual(computeRoles({ ...base, view: view(1, "롤", false) }), ["standby", "standby"]);
+});
+
+test("우선순위는 잠깐 확인, 고정, 수동 집중, 자동 순서다", () => {
+  const pinned = { ...lol, pinned: true };
+  const slots = [pinned, other];
+  assert.deepEqual(computeRoles({ ...base, slots, peek: 1, view: view(9, "과제") }), ["standby", "main"]);
+  assert.deepEqual(computeRoles({ ...base, slots, view: view(9, "과제") }), ["main", "standby"]);
+  assert.deepEqual(computeRoles({ ...base, manual: 1, view: view(1, "롤") }), ["standby", "main"]);
+});
+
+test("빈 슬롯에는 역할이 없고 자동을 끄면 모두 메인이다", () => {
+  assert.deepEqual(computeRoles({ ...base, slots: [lol, emptySlot()], view: view(9, "과제") }), ["standby", null]);
+  assert.deepEqual(computeRoles({ ...base, auto: false, view: view(9, "과제") }), ["main", "main"]);
+});
+
+test("음량은 역할별로 적용되고 음소거가 우선한다", () => {
+  assert.equal(gainFor(lol, "main", DEFAULT_SETTINGS), 0.8);
+  assert.equal(gainFor(lol, "standby", DEFAULT_SETTINGS), 0.15);
+  assert.equal(gainFor(lol, "standby", { ...DEFAULT_SETTINGS, bgMute: true }), 0);
+  assert.equal(gainFor({ ...lol, muted: true }, "main", DEFAULT_SETTINGS), 0);
+});
+
+test("탭 분류는 사용자 규칙, 사이트, 단어 순서다", () => {
+  assert.equal(classify({ url: "https://www.op.gg/x", title: "전적" }, {}, PROFILES), "롤");
+  assert.equal(classify({ url: "https://kr.op.gg/x", title: "" }, {}, PROFILES), "롤");
+  assert.equal(classify({ url: "https://www.youtube.com/w", title: "LCK 결승 생중계" }, {}, PROFILES), "롤");
+  assert.equal(classify({ url: "https://www.op.gg/x", title: "" }, { "op.gg": "과제" }, PROFILES), "과제");
+  assert.equal(classify({ url: "https://docs.google.com/d", title: "운영체제 보고서" }, {}, PROFILES), null);
+  assert.equal(hostOf("chrome://extensions"), "extensions");
+  assert.equal(hostOf("not a url"), "");
+});
+
+test("화면 차이는 같은 장면이면 0, 완전히 바뀌면 크다", () => {
+  const black = new Uint8ClampedArray(16).fill(0);
+  const white = new Uint8ClampedArray(16).fill(255);
+  assert.equal(frameDiff(black, black), 0);
+  assert.equal(frameDiff(black, white), 255);
+});
+
+test("음성 인식 오류를 보정하면 키워드를 찾는다", () => {
+  const { aliases, keywords } = PROFILES[0];
+  const text = correctTranscript("블루팀이 발언을 처치합니다", aliases);
+  assert.equal(text, "블루팀이 바론을 처치합니다");
+  assert.equal(findKeyword(correctTranscript("팬타 킬 나왔습니다", aliases), keywords), "펜타킬");
+  assert.equal(findKeyword("조용한 라인전입니다", keywords), null);
+  assert.equal(findKeyword("블루팀이 바론 쪽으로 움직입니다", keywords), null, "이동만으로는 알리지 않음");
+  assert.equal(findKeyword(correctTranscript("블루팀이 발음을 처치합니다", aliases), keywords), "바론을 처치");
+});
+
+test("소리 급등은 지속될 때 한 번만 감지하고 재사용 대기를 지킨다", () => {
+  const detector = new SurgeDetector({ cooldownMs: 15000 });
+  let now = 0;
+  const feed = (db, count) => {
+    const hits = [];
+    for (let i = 0; i < count; i++) {
+      now += 250;
+      if (detector.push(db, now)) hits.push(now);
+    }
+    return hits;
+  };
+  assert.equal(feed(-30, 30).length, 0);
+  assert.equal(feed(-29, 2).length, 0);
+  assert.equal(feed(-15, 2).length, 0, "짧은 소리는 무시");
+  assert.equal(feed(-30, 2).length, 0);
+  assert.equal(feed(-15, 8).length, 1, "긴 급등은 한 번");
+  assert.equal(feed(-30, 70).length, 0);
+  assert.equal(feed(-15, 4).length, 1, "대기 후 다시 감지");
+  assert.equal(detector.push(-Infinity, now), false);
+});

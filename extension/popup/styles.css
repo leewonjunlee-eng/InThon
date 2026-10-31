@@ -1,0 +1,380 @@
+#ab-mock {
+  --bg: light-dark(#ffffff, #22232b);
+  --ink: light-dark(#242432, #f2f1fa);
+  --muted: light-dark(#737385, #b3b1c6);
+  --line: light-dark(#dedee8, #484657);
+  --soft: light-dark(#f5f4fa, #2e2c3b);
+  --brand: light-dark(#6254d8, #b6aaff);
+  --tint: light-dark(#eeebff, #38324f);
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
+  color: var(--ink);
+  padding: 20px 8px;
+}
+#ab-mock * {
+  box-sizing: border-box;
+}
+#ab-mock .wrap {
+  max-width: 460px;
+  margin: auto;
+}
+#ab-mock .demo {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+#ab-mock button {
+  font: inherit;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+#ab-mock button:disabled {
+  opacity: 0.4;
+}
+#ab-mock button[aria-pressed="true"] {
+  background: var(--tint);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+#ab-mock .app {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+#ab-mock header {
+  padding: 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#ab-mock h2 {
+  font-size: 20px;
+  margin: 0;
+  font-weight: 500;
+}
+#ab-mock h3 {
+  font-size: 15px;
+  margin: 0;
+  font-weight: 500;
+}
+#ab-mock p {
+  margin: 0;
+}
+#ab-mock .sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+#ab-mock main {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+#ab-mock .slot {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+#ab-mock .slot.empty {
+  border-style: dashed;
+}
+#ab-mock .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#ab-mock .letter {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--tint);
+  color: var(--brand);
+  font-weight: 500;
+}
+#ab-mock .badge {
+  font-size: 11px;
+  padding: 4px 7px;
+  background: var(--soft);
+  border-radius: 5px;
+}
+#ab-mock .source {
+  padding: 12px;
+  background: var(--soft);
+  border-radius: 8px;
+}
+#ab-mock .source strong {
+  display: block;
+  font-weight: 500;
+}
+#ab-mock .solid {
+  background: #6254d8;
+  color: #fff;
+  border-color: #6254d8;
+}
+#ab-mock .full {
+  width: 100%;
+}
+#ab-mock .two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+#ab-mock .segments {
+  display: flex;
+  gap: 5px;
+}
+#ab-mock .segments button {
+  flex: 1;
+  padding: 7px 4px;
+}
+#ab-mock .quiet {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px;
+  min-height: 30px;
+  font-size: 12px;
+}
+#ab-mock .notice {
+  background: var(--soft);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+#ab-mock .picker {
+  display: grid;
+  gap: 8px;
+}
+#ab-mock .choice {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+}
+#ab-mock .choice span {
+  display: block;
+}
+#ab-mock footer {
+  border-top: 1px solid var(--line);
+  padding: 14px 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+#ab-mock input {
+  width: 100%;
+  accent-color: #6254d8;
+}
+#ab-mock .caption {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 12px;
+}
+#ab-mock .status {
+  font-size: 12px;
+  color: var(--brand);
+}
+
+:root {
+  color-scheme: light;
+}
+body {
+  margin: 0;
+  background: #f4f3f8;
+}
+#ab-mock {
+  min-height: 100vh;
+  background-image: radial-gradient(#d9d7e5 0.8px, transparent 0.8px);
+  background-size: 18px 18px;
+  padding: 32px 12px;
+}
+#ab-mock .wrap {
+  width: 100%;
+}
+#ab-mock button {
+  cursor: pointer;
+}
+#ab-mock button:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+#ab-mock button:disabled {
+  cursor: not-allowed;
+}
+#ab-mock button:focus-visible,
+#ab-mock input:focus-visible {
+  outline: 3px solid #a99deb;
+  outline-offset: 3px;
+}
+#ab-mock .solid:hover:not(:disabled) {
+  background: #5344c7;
+}
+#ab-mock .app {
+  box-shadow: 0 12px 40px #2424320a;
+}
+#ab-mock .focus-card {
+  border-color: #6254d8;
+}
+#ab-mock .focus-badge {
+  color: #6254d8;
+  background: #eeebff;
+}
+#ab-mock .demo button {
+  font-size: 12px;
+  min-height: 36px;
+}
+#ab-mock .footer-actions {
+  display: grid;
+  gap: 8px;
+}
+#ab-mock .empty-message {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+}
+#ab-mock .choice[aria-pressed="true"] {
+  border-color: var(--brand);
+}
+@media (max-width: 380px) {
+  #ab-mock {
+    padding: 12px 8px;
+  }
+  #ab-mock main,
+  #ab-mock header {
+    padding: 14px;
+  }
+  #ab-mock .two {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #ab-mock button {
+    transition:
+      background 0.15s,
+      border-color 0.15s;
+  }
+}
+
+/* Stable popup shell: only the content area scrolls as states change. */
+#ab-mock .app {
+  height: 740px;
+  height: min(740px, calc(100dvh - 150px));
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+#ab-mock .app > header,
+#ab-mock .app > footer {
+  flex: 0 0 auto;
+}
+#ab-mock .app > main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  align-content: start;
+}
+@media (max-height: 500px) {
+  #ab-mock {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  #ab-mock .app {
+    height: calc(100dvh - 110px);
+    min-height: 180px;
+  }
+}
+
+/* 툴바 아이콘을 눌렀을 때만 뜨는 작은 팝업 */
+html {
+  width: 340px;
+}
+#ab-mock {
+  padding: 0;
+  background-image: none;
+}
+#ab-mock .app {
+  height: 460px;
+  min-height: 460px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+#ab-mock header {
+  padding: 10px 14px;
+}
+#ab-mock main {
+  padding: 12px;
+}
+#ab-mock .app > footer {
+  padding: 8px 14px;
+}
+#ab-mock .stack {
+  display: grid;
+  gap: 6px;
+}
+#ab-mock .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#ab-mock .check input {
+  width: auto;
+}
+#ab-mock select,
+#ab-mock input[type="text"],
+#ab-mock input[type="url"],
+#ab-mock input[type="password"] {
+  font: inherit;
+  padding: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+#ab-mock .map {
+  position: relative;
+  height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  touch-action: none;
+  cursor: crosshair;
+}
+#ab-mock .map .head {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.6;
+}
+#ab-mock .map .dot {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #6254d8;
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+}

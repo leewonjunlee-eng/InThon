@@ -1,0 +1,10 @@
+{
+  "name": "catch-sound",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "server": "python server/server.py",
+    "build": "python -c \"import shutil; shutil.make_archive('dist/catch-sound-extension', 'zip', 'extension')\""
+  }
+}
