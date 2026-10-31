@@ -2,6 +2,8 @@
 if (!globalThis.catchSoundStatusLoaded) {
   globalThis.catchSoundStatusLoaded = true;
   const KEY = 'catchsound-status-position';
+  const EXPANDED_KEY = 'catchsound-status-expanded';
+  let expansionChanged = false;
   document.getElementById('catchsound-status')?.remove();
   const host = document.createElement('div'); host.id = 'catchsound-status';
   host.style.cssText = 'position:fixed;z-index:2147483647;display:none';
@@ -43,9 +45,14 @@ if (!globalThis.catchSoundStatusLoaded) {
   async function savePosition() {
     try { await chrome.storage.local.set({[KEY]:position}); } catch {}
   }
+  function renderExpansion() {
+    $('.panel').hidden=!(connected && expanded);
+    $('.toggle').setAttribute('aria-expanded', String(Boolean(connected && expanded)));
+    updateControl();place();
+  }
   function togglePanel() {
-    expanded=!expanded; $('.panel').hidden=!expanded;
-    $('.toggle').setAttribute('aria-expanded', String(expanded)); updateControl(); place();
+    expanded=!expanded; expansionChanged=true; renderExpansion();
+    chrome.storage.local.set({[EXPANDED_KEY]:expanded}).catch(()=>{});
   }
   function updateControl() {
     const button=$('.close');
@@ -83,7 +90,7 @@ if (!globalThis.catchSoundStatusLoaded) {
     if(!snapshot || stopped)return;
     connected=snapshot.connected;
     if(connected){dismissed=false;hasConnected=true;}
-    else {expanded=false;$('.panel').hidden=true;$('.toggle').setAttribute('aria-expanded','false');}
+    renderExpansion();
     host.style.display=hasConnected && !dismissed?'block':'none';
     updateControl();
     const state=snapshot.errors?'error':snapshot.delayed?'delay':snapshot.preparing?'preparing':snapshot.ready?'ready':'off';
@@ -136,10 +143,12 @@ if (!globalThis.catchSoundStatusLoaded) {
     if(m.to==='monitor' && !stopped){update(m.snapshot);respond({monitorReady:true});}
   }
   function onStorage(changes,area){
-    if(!stopped && area==='local'&&changes[KEY]&&!drag){position=changes[KEY].newValue??null;place();}
+    if(stopped || area!=='local')return;
+    if(changes[KEY]&&!drag){position=changes[KEY].newValue??null;place();}
+    if(changes[EXPANDED_KEY]){expansionChanged=true;expanded=changes[EXPANDED_KEY].newValue===true;renderExpansion();}
   }
   chrome.runtime.onMessage.addListener(onMonitor);
-  chrome.storage.local.get(KEY).then(v=>{if(!stopped){position=v[KEY]??null;place();}}).catch(()=>{});
+  chrome.storage.local.get([KEY,EXPANDED_KEY]).then(v=>{if(!stopped){position=v[KEY]??null;if(!expansionChanged)expanded=v[EXPANDED_KEY]===true;renderExpansion();}}).catch(()=>{});
   chrome.storage.onChanged?.addListener(onStorage);
   window.addEventListener('resize',place);
   const poll=setInterval(refresh,5000);void refresh();
