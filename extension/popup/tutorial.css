@@ -1,0 +1,102 @@
+#ab-mock .onboarding{width:min(460px,calc(100vw - 24px));height:min(700px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif;box-shadow:0 12px 40px #24243222;overflow:hidden}
+#ab-mock .onboarding[open]{display:flex;flex-direction:column}#ab-mock .onboarding::backdrop{background:#24243233}
+.tour-progress{display:flex;gap:3px;flex-shrink:0}.tour-progress span{height:4px;flex:1;background:var(--line)}.tour-progress span:first-child{border-radius:4px 0 0 4px}.tour-progress span:last-child{border-radius:0 4px 4px 0}.tour-progress .filled{background:var(--brand)}.tour-heading{display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-shrink:0}#ab-mock .tour-heading button{font-size:12px;min-height:32px;padding:4px 0}#ab-mock .onboarding h3{font-size:14px}#ab-mock #onboarding-title{margin:8px 0;font-size:16px;font-weight:600;flex-shrink:0}.tour-description{margin:0 0 14px;min-height:42px;flex-shrink:0;word-break:keep-all}.tour-key{color:var(--brand);font-weight:600;white-space:nowrap}.tour-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:1px 3px 1px 1px;scrollbar-width:thin}.tour-content>.slot{margin:0}.tour-hint{margin-top:18px;word-break:keep-all}.tour-link{text-decoration:underline;text-underline-offset:3px}.tour-condition{padding:14px;background:var(--soft);border-radius:12px;word-break:keep-all}.tour-condition p{margin:8px 0}.tour-condition-detail{padding-top:12px}.tour-footer{display:flex;gap:8px;flex-shrink:0}.tour-footer button:last-child{flex:1}.tour-feedback{font-size:11px;color:var(--brand);height:30px;flex-shrink:0;margin:8px 0;word-break:keep-all}.tour-disclaimer{text-align:center;font-size:10px;margin:8px 0 0;flex-shrink:0}.tour-inbox-area{position:relative;min-height:280px;padding:16px 0 64px}.tour-inbox{background:var(--soft);padding:12px;border:1px solid var(--line);border-radius:12px}.tour-inbox article{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:8px}.tour-inbox article p{margin:6px 0}.tour-inbox article h3{margin:6px 0}#ab-mock .tour-bell{position:absolute;left:0;bottom:0;border:0;border-radius:50%;width:48px;height:48px;padding:0;display:grid;place-items:center;background:#6254d8;color:white}.tour-bell span{position:absolute;right:-3px;top:-4px;border:2px solid white;border-radius:50%;background:#4435ab;width:22px;height:22px;font-size:11px;display:grid;place-items:center}.tour-content [hidden]{display:none!important}
+
+#ab-mock .tour-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 18px}#ab-mock .tour-welcome-brand{display:flex;flex-direction:column;align-items:center;gap:2px}#ab-mock .tour-welcome-brand img{object-fit:contain;width:104px;height:104px}#ab-mock .tour-welcome #onboarding-title{font-size:30px;font-weight:700;letter-spacing:-1px;margin:0}#ab-mock .tour-welcome>p{margin:4px 0 0;word-break:keep-all}#ab-mock .tour-welcome-actions{display:grid;gap:8px;width:100%;max-width:300px;margin-top:44px}#ab-mock .tour-welcome-actions .solid{min-height:44px}#ab-mock .tour-welcome-actions .quiet{color:var(--muted)}
+
+/* Match the production extension viewport, including its persistent brand header. */
+#ab-mock .onboarding{width:460px;max-width:calc(100vw - 16px);height:600px;max-height:calc(100dvh - 16px);padding:18px;gap:0;box-sizing:border-box}
+#ab-mock .tour-brand-header{flex:0 0 auto;margin:0 0 14px;padding:0;display:block}
+#ab-mock .tour-brand-header .brand-lockup{font-size:24px;line-height:36px;margin:0;gap:7px}
+#ab-mock .tour-brand-header>p{font-size:12px;margin:3px 0 0}
+#ab-mock .tour-heading{margin-top:4px}#ab-mock #onboarding-title{font-size:15px;margin:5px 0}
+#ab-mock .tour-description{min-height:0;font-size:12px;line-height:1.5;margin:0 0 10px}
+#ab-mock .tour-content{overflow:visible;min-height:0;padding:0;flex:1}
+#ab-mock .tour-content .slot{padding:12px;gap:10px}
+#ab-mock .tour-content .source{padding:10px;word-break:keep-all;font-size:12px}
+#ab-mock .tour-content .source strong{font-size:12px;line-height:1.5}
+#ab-mock .tour-content .sub{font-size:12px}
+#ab-mock .tour-content .tab-status{margin:0;font-size:13px}
+#ab-mock .tour-content .picker{gap:7px}
+#ab-mock .tour-content .choice{padding:9px 12px;font-size:12px;min-height:52px}
+#ab-mock .tour-content h3{margin:5px 0;font-size:13px}
+#ab-mock .tour-content>.quiet{min-height:28px;padding:3px 8px;font-size:12px}
+#ab-mock .tour-content>.sub{font-size:11px;margin:7px 0;word-break:keep-all}
+#ab-mock .tour-content .tour-condition{padding:10px;font-size:12px}
+#ab-mock .tour-condition p{margin:5px 0}
+#ab-mock .tour-content .tour-link{min-height:28px;padding:4px}
+#ab-mock .tour-footer{padding-top:10px;flex-shrink:0}
+#ab-mock .tour-inbox-area{min-height:0;height:245px;padding:8px 0 54px}
+#ab-mock .tour-inbox{padding:8px;font-size:12px}
+#ab-mock .tour-inbox article{padding:8px;margin-top:4px}
+#ab-mock .tour-inbox button{min-height:24px;padding:2px 6px;font-size:12px}
+#ab-mock .tour-inbox-area>.sub{margin-top:12px}
+#ab-mock .tour-welcome{padding:0 16px;justify-content:center}
+#ab-mock .tour-welcome #onboarding-title{font-size:17px;letter-spacing:0;line-height:1.5}
+#ab-mock .tour-welcome>p{margin:10px 0 0;font-size:13px}
+#ab-mock .tour-welcome-actions{margin-top:30px}
+#ab-mock .tour-brand-header{height:auto;min-height:0;border:0}
+#ab-mock .tour-content .picker{display:grid;gap:6px}
+#ab-mock .tour-content .choice{min-height:48px;padding:7px 10px}
+
+/* The tour replaces the main screen while onboarding is open. */
+html.tutorial-active #ab-mock > .wrap{visibility:hidden}
+html.tutorial-active body{background:#f5f4fa;background-image:none}
+html.tutorial-active #ab-mock .onboarding::backdrop{background:#f5f4fa;backdrop-filter:none}
+
+#ab-mock .tour-welcome .tour-welcome-brand #onboarding-title{font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1.3;margin:0}
+#ab-mock .tour-welcome .tour-welcome-brand{gap:2px}
+#ab-mock .tour-welcome>p{margin-top:4px}
+
+#ab-mock .tour-content .tour-add-card{margin-top:10px;padding:10px;gap:8px}
+#ab-mock .tour-content .tour-add-card:first-child{margin-top:0}
+#ab-mock .tour-content .tour-add-card .quiet{min-height:26px;padding:2px 8px;font-size:12px}
+#ab-mock .tour-content .tour-add-button{margin-top:10px}
+
+#ab-mock .tour-content .tour-standby-card{border-style:dashed}
+#ab-mock .tour-standby-card .slot-heading{display:flex;align-items:center;justify-content:space-between}
+#ab-mock .tour-standby-card .remove-slot{min-height:30px;padding:4px}
+
+/* Focus and standby badges share identical type, icon cells and dimensions. */
+#ab-mock .tour-content .slot-heading .tab-status{display:inline-flex;flex:none;align-items:center;justify-content:center;width:90px;height:32px;margin:0;padding:6px 10px;gap:8px;font-size:13px;font-weight:500;line-height:20px;white-space:nowrap}
+#ab-mock .tour-content .tour-standby-card{padding:12px}
+
+#ab-mock .tour-preset-editor{display:grid;gap:10px;font-size:12px}
+#ab-mock .tour-preset-editor h3{margin:0}
+#ab-mock .tour-preset-editor input,#ab-mock .tour-preset-editor textarea{font:12px/1.5 system-ui,sans-serif;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+#ab-mock .tour-preset-editor textarea{height:92px;resize:none;word-break:keep-all}
+#ab-mock .tour-preset-editor .sub{font-size:10px}
+#ab-mock .tour-condition-preview{white-space:pre-line;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+#ab-mock .tour-content .tour-audio-card{margin:0;padding:12px;gap:10px;border-width:1px}
+#ab-mock .tour-audio-card>button.full{height:40px;min-height:40px;box-sizing:border-box}
+
+/* Keep the real inbox layout within the tutorial's fixed viewport. */
+#ab-mock .tour-dnd{height:100%;display:flex;flex-direction:column;gap:12px}
+#ab-mock .tour-dnd .settings-card{padding:10px 12px;margin:0}
+#ab-mock .tour-dnd .settings-card strong{font-size:13px}
+#ab-mock .tour-dnd .settings-card .sub{font-size:11px;margin-top:2px}
+#ab-mock .tour-dnd .tour-inbox-area{flex:1;min-height:0;height:auto;padding:0 0 52px}
+#ab-mock .tour-dnd .tour-inbox{height:100%;padding:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);border-radius:16px;box-shadow:0 5px 16px #2424320a}
+#ab-mock .tour-inbox-heading{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;gap:12px}
+#ab-mock .tour-inbox-heading strong{font-size:14px}
+#ab-mock .tour-inbox-heading .sub{margin:4px 0 0;font-size:11px}
+#ab-mock .tour-inbox .tour-inbox-close{display:grid;place-items:center;width:28px;height:28px;padding:4px;min-height:28px;color:var(--muted)}
+#ab-mock .tour-inbox-empty{flex:1;min-height:44px;display:grid;place-items:center;background:var(--soft);color:var(--muted);font-size:12px;border-block:1px solid #ededf4}
+#ab-mock .tour-inbox-footer{padding:10px 16px}
+#ab-mock .tour-inbox-footer button{height:32px;color:var(--brand);background:var(--soft);opacity:.45;border-radius:9px}
+#ab-mock .tour-dnd .tour-bell{width:42px;height:42px;box-shadow:0 4px 12px #6254d822}
+#ab-mock .tour-dnd .tour-bell span{width:20px;height:20px;top:-3px;right:-3px}
+#ab-mock .tour-dnd-placeholder{height:100%;display:grid;place-content:center;text-align:center;line-height:1.8;font-size:12px;color:var(--muted);background:var(--soft);border-radius:16px}
+
+#ab-mock .tour-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+#ab-mock .tour-title-row .setting-switch{flex-shrink:0}
+#ab-mock .tour-alert-list{flex:1;min-height:0;overflow-y:auto;padding:8px 10px;background:var(--soft);overscroll-behavior:contain;scrollbar-width:thin;border-block:1px solid #ededf4}
+#ab-mock .tour-inbox .tour-alert-card{padding:10px 12px;margin:0 0 8px;border-radius:10px;background:var(--bg)}
+#ab-mock .tour-inbox .tour-alert-card:last-child{margin-bottom:0}
+#ab-mock .tour-alert-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#ab-mock .tour-alert-heading .sub{font-size:10px;color:var(--brand)}
+#ab-mock .tour-alert-heading button{display:grid;place-items:center;min-height:24px;width:24px;padding:3px}
+#ab-mock .tour-alert-card>strong{font-size:12px}
+#ab-mock .tour-alert-card>p{font-size:11px;line-height:1.5;color:var(--muted);word-break:keep-all;margin:4px 0 0}
+#ab-mock .tour-inbox-footer button:not(:disabled){opacity:1}
