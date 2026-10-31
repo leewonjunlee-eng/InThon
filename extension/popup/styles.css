@@ -386,9 +386,6 @@ html.extension-popup { width: 460px; height: 600px; }
 #ab-mock .preset-heading { display: grid; gap: 4px; }
 #ab-mock .preset-heading h3 { font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
 #ab-mock .preset-description { background: var(--soft); border-radius: 12px; padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
-#ab-mock .preset-apply { display: flex; justify-content: space-between; gap: 12px; text-align: left; }
-#ab-mock .preset-apply span:first-child { min-width: 0; overflow-wrap: anywhere; }
-#ab-mock .preset-apply span:last-child { flex-shrink: 0; color: var(--brand); }
 #ab-mock .preset-actions { display: grid; gap: 6px; padding-top: 12px; }
 #ab-mock .danger { color: #bb3f4c; }
 #ab-mock #notice:empty { display: none; }
