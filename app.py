@@ -36,7 +36,8 @@ def relay(path):
         return jsonify(error="서버 접속 토큰이 올바르지 않습니다."), 401
     if not backend.AI_READY:
         return jsonify(error="서버의 레블업 연결 설정이 필요합니다."), 503
-    if backend.rate_limited(request.remote_addr or "unknown"):
+    # Vercel의 remote_addr은 항상 127.0.0.1이라 실제 사용자 IP 헤더로 구분한다.
+    if backend.rate_limited(request.headers.get("X-Real-IP") or request.remote_addr or "unknown"):
         return jsonify(error="요청이 많습니다. 잠시 후 다시 시도해 주세요."), 429
     try:
         body = request.get_json(force=True)

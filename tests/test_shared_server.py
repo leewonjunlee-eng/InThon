@@ -33,6 +33,11 @@ class SharedServerTests(unittest.TestCase):
         with patch.object(cloud.backend, "SETTINGS", {"AUDIO_FOCUS_TOKEN": ""}):
             self.assertEqual(self.client.post("/check", json={}).status_code, 503)
 
+    def test_rate_limit_is_per_user_not_per_proxy(self):
+        with patch.object(cloud.backend, "rate_limited", return_value=False) as limited:
+            self.client.post("/check", json={}, headers={"X-Demo-Token": "relay-test", "X-Real-IP": "203.0.113.7"})
+        limited.assert_called_once_with("203.0.113.7")
+
     def test_cors_and_request_validation(self):
         self.assertEqual(self.client.options("/suggest-profile").status_code, 204)
         headers = {"X-Demo-Token": "relay-test"}

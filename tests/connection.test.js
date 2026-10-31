@@ -52,6 +52,8 @@ test('connection failures explain the missing shared server or invalid token', a
     globalThis.fetch = async url => url.endsWith('/health')
       ? { ok: true, json: async () => ({ ok: true, aiReady: true }) }
       : { ok: false, status: 401, json: async () => ({ error: '서버 접속 토큰이 올바르지 않습니다.' }) };
-    await assert.rejects(api.checkConnection(), /접속 토큰/);
+    await assert.rejects(api.checkConnection(), /복원/);
+    const sourceInstall = createApi(async () => ({ serverUrl: 'https://relay.example', token: '' }));
+    await assert.rejects(sourceInstall.checkConnection(), /토큰이 없습니다.*ZIP/);
   } finally { globalThis.fetch = before; }
 });

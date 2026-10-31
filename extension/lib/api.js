@@ -33,6 +33,7 @@ export function createApi(getConfig) {
         throw new Error(restartMessage);
       }
       const body = await response.json().catch(() => ({}));
+      if (response.status === 401 && !token) throw new Error("이 설치본에는 서버 접속 토큰이 없습니다. 공용 서버용 ZIP을 설치하거나 세부설정의 AI 서버 연결에 접속 토큰을 입력해 주세요.");
       if (response.status === 401) throw new Error((body.error || "AI 서버 접속 토큰이 올바르지 않습니다.") + " 세부설정에서 공용 서버 기본 연결 복원을 눌러 주세요.");
       throw new Error(body.error || `server ${response.status}`);
     }
