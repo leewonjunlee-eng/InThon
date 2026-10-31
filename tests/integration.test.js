@@ -6,6 +6,8 @@ test('frontend selection connects only its active tab and preserves audio contro
   let handler, latest, shortcut, notificationClick, tabRemoved;
   let activeId = 11;
   let windowFocused = true;
+  let focusedWindowId = 1;
+  let blockedTabId = null;
   const contentMessages = [], notifications = new Map();
   const engineCommands = [], scannedTabs = [], aiRequests = [], popupRequests = [];
   const tabs = [
@@ -36,15 +38,15 @@ test('frontend selection connects only its active tab and preserves audio contro
     },
     tabs: {
       get: async id => { const tab = tabs.find(tab => tab.id === id); if (!tab) throw new Error("missing tab"); return tab; },
-      query: async query => query.active ? tabs.filter(tab => tab.id === activeId) : tabs,
+      query: async query => query.active ? tabs.filter(tab => tab.id === activeId && (query.windowId === undefined || tab.windowId === query.windowId)) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
       onActivated: event, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
-      sendMessage: async (id, message) => { contentMessages.push({ id, ...message }); return { ok: true }; },
+      sendMessage: async (id, message) => { if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); contentMessages.push({ id, ...message }); return { ok: true }; },
     },
-    windows: { getLastFocused: async () => ({ id: 1, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
+    windows: { getLastFocused: async () => ({ id: focusedWindowId, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
     offscreen: { hasDocument: async () => true },
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
-    scripting: { executeScript: async ({ target }) => { scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
+    scripting: { executeScript: async ({ target }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
     commands: { onCommand: { addListener(fn) { shortcut = fn; } } },
     notifications: { onButtonClicked: { addListener(fn) { notificationClick = fn; } },
       getAll: async () => Object.fromEntries(notifications),
@@ -135,6 +137,22 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment', moment: { ...moment, id: 'system-2' } });
     assert.equal(notifications.size, 1, 'new system alert replaces previous alert');
     windowFocused = true;
+    focusedWindowId = 2;
+    activeId = 13;
+    tabs.push({ id: 13, windowId: 2, title: '다른 창의 페이지', url: 'https://example.net/' });
+    // Deliberately omit the focus-change event: cached state still says Chrome is unfocused.
+    await emit({ type: 'moment', moment: { ...moment, id: 'other-window' } });
+    assert.equal(contentMessages.at(-1).cmd, 'moment');
+    assert.equal(contentMessages.at(-1).id, 13, 'alert goes to the active tab in the other window');
+    assert.equal(notifications.size, 0, 'stale focus state must not force a system alert');
+    blockedTabId = 13;
+    await emit({ type: 'moment', moment: { ...moment, id: 'restricted-page' } });
+    assert(notifications.has('moment:restricted-page'), 'restricted pages fall back to system notifications');
+    assert.equal(notifications.get('moment:restricted-page').title, 'CatchSound · 한화 경기');
+    blockedTabId = null;
+    tabs.pop();
+    focusedWindowId = 1;
+    activeId = 11;
     await send('settings', { patch: {} });
     await emit({ type: 'moment', moment: { ...moment, id: 'page-after-system' } });
     assert.equal(notifications.size, 0, 'a page alert also replaces existing system alerts');

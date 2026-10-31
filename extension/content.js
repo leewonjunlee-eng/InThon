@@ -87,7 +87,7 @@ if (!globalThis.audioFocusLoaded) {
       card.className = "card compact";
       const head = document.createElement("div");
       head.className = "head";
-      const brand = text("span", "catchsound"); brand.className = "brand";
+      const brand = text("span", "CatchSound"); brand.className = "brand";
       const time = text("span", moment.time); time.className = "time";
       const dismiss = action("×", close); dismiss.className = "close";
       dismiss.setAttribute("aria-label", "알림 닫기");

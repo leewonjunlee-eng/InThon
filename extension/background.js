@@ -300,15 +300,20 @@ async function displayMoment(moment) {
   await clearAlerts();
   const pan = state.slots[index].pan;
   toEngine("chime", { pan }).catch(() => {});
-  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (state.view.focused && tab) {
-    const shown = await showCard(tab.id, moment, index);
-    if (shown) return;
+  // Resolve the destination at delivery time, not from delayed focus-change state.
+  // The listening tab may belong to an entirely different Chrome window.
+  const window = await chrome.windows.getLastFocused().catch(() => null);
+  if (window?.focused) {
+    const [tab] = await chrome.tabs.query({ active: true, windowId: window.id }).catch(() => []);
+    if (tab) {
+      const shown = await showCard(tab.id, moment, index);
+      if (shown) return;
+    }
   }
   await chrome.notifications.create(NOTIFICATION_PREFIX + moment.id, {
     type: "basic",
     iconUrl: "icon.png",
-    title: `Catch Sound · ${moment.topic}`,
+    title: `CatchSound · ${moment.topic}`,
     message: moment.summary,
     buttons: [{ title: "여기에 집중" }, { title: "나중에" }],
     requireInteraction: true,

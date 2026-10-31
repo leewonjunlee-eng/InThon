@@ -1,4 +1,4 @@
-# Catch Sound
+# CatchSound
 
 ## 확장 프로그램 바로 설치하기
 
@@ -51,7 +51,7 @@ npm run build
 
 ## frontend 통합 브랜치 확인
 
-`codex/frontend-catch-sound`는 main의 Catch Sound 엔진에 frontend의 A/B 화면과 탭 선택 흐름을 연결합니다.
+`codex/frontend-catch-sound`는 main의 CatchSound 엔진에 frontend의 A/B 화면과 탭 선택 흐름을 연결합니다.
 `extension/popup/`이 공통 UI 원본이며 웹 체험도 같은 HTML 구조, CSS, UI 로직을 사용합니다.
 웹은 샘플 음원을, 확장은 실제 Chrome 탭을 제어합니다. 서로 다른 UI를 따로 수정할 필요가 없습니다.
 
@@ -69,7 +69,7 @@ AI 설정이 없으면 AI 요청은 명확한 안내와 함께 503으로 응답�
 ### Chrome 확장에서 확인
 
 1. chrome://extensions → 개발자 모드 → Load unpacked에서 **이 통합 브랜치의 extension 폴더**를 선택합니다.
-2. 이전 Catch Sound 확장은 꺼 두어 중복 실행을 피합니다.
+2. 이전 CatchSound 확장은 꺼 두어 중복 실행을 피합니다.
 3. 소리가 나는 웹 탭에서 확장 아이콘을 누릅니다.
 4. 첫 번째 슬롯의 탭 선택 → 연결을 누릅니다. 다른 탭을 골랐다면 그 탭으로 이동한 뒤 아이콘을 다시 누릅니다.
 5. 다른 소리 탭에서 두 번째 슬롯도 연결합니다. 더 필요하면 **＋ 탭 추가**로 슬롯을 늘리고 음량·방향·집중·복귀를 확인합니다.
