@@ -1,5 +1,6 @@
 import { createApi } from "./lib/api.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-profiles.js";
+import { scanConnectedTab } from "./lib/page-context.js";
 import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf } from "./lib/logic.js";
 
 const STANDBY_DELAY_MS = 2000;
@@ -62,6 +63,7 @@ const topics = () => [...new Set([...profiles().map((profile) => profile.name), 
 const slotIndex = (tabId) => state.slots.findIndex((slot) => slot.tabId === tabId);
 const profileOf = (slot) => slot.profileId === "auto" ? alertProfileFor(slot) : profiles().find((profile) => profile.id === slot.profileId) ?? null;
 const autoProfiles = createAutoProfiles({ api, slots: () => state.slots,
+  readContext: scanConnectedTab,
   transcript: id => state.transcript.filter(line => line.tabId === id).map(line => line.text).join("\n"),
   publish: commit, apply: async () => { await pushOutputs(); await commit(); },
 });

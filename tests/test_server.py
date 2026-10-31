@@ -10,13 +10,17 @@ class SuggestProfileTests(unittest.TestCase):
             {"text": " "}, {"text": 123}, "invalid",
         ]}
         with patch.object(server, "ask_json", return_value=answer) as model:
-            result = server.suggest_profile({"title": "x" * 500, "host": "example.com", "text": "y" * 8000})
+            result = server.suggest_profile({"title": "x" * 500, "host": "example.com", "text": "y" * 8000,
+                                             "description": "설명" * 2000, "pageText": "본문" * 3000, "captions": "현재 자막"})
         self.assertEqual(result["rules"], [{"text": "가격이 공개되면", "enabled": True}])
         self.assertEqual(model.call_args.kwargs["max_tokens"], 5000)
         import json
         context = json.loads(model.call_args.args[1])
         self.assertEqual(len(context["title"]), 300)
         self.assertEqual(len(context["text"]), 6000)
+        self.assertEqual(len(context["description"]), 1500)
+        self.assertEqual(len(context["pageText"]), 3500)
+        self.assertEqual(context["captions"], "현재 자막")
 
     def test_invalid_model_output_is_rejected(self):
         for answer in ([], {"rules": []}, {"rules": "invalid"}):

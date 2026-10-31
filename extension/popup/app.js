@@ -106,10 +106,10 @@ function renderAlertSummary(slot, i) {
   const setup = slot.alertSetup;
   if (slot.profileId !== "auto") return "";
   const enabled = setup?.profile?.rules.filter(rule => rule.enabled).length ?? 0;
-  const status = setup?.status === "generating" ? "AI가 이 탭의 알림 조건을 만드는 중…"
+  const status = setup?.status === "generating" ? setup.phase === "scanning" ? "연결된 탭의 설명과 본문을 읽는 중…" : "AI가 이 탭의 알림 조건을 만드는 중…"
     : setup?.status === "error" ? `조건 생성 실패: ${setup.error}`
     : setup?.profile ? `${setup.profile.name} · ${enabled ? `${enabled}개 조건 사용 중` : "알림 조건 모두 꺼짐"}` : "이 탭의 알림을 준비하고 있어요.";
-  const source = setup?.edited ? "직접 수정한 조건을 유지합니다." : setup?.source === "transcript" ? "최근 자막을 참고해 보완했어요." : "탭 제목으로 제안하고, 자막이 모이면 한 번 보완합니다.";
+  const source = setup?.edited ? "직접 수정한 조건을 유지합니다." : setup?.scanError || (setup?.source === "transcript" ? "최근 자막을 참고해 보완했어요." : setup?.source === "page" ? "탭의 설명·본문·표시된 자막을 참고했어요. 재생 자막이 모이면 한 번 보완합니다." : "탭 제목으로 제안하고, 자막이 모이면 한 번 보완합니다.");
   return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet")}</div>`;
 }
 

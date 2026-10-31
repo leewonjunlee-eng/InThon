@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 test('frontend selection connects only its active tab and preserves audio controls', async () => {
   let handler, latest;
   let activeId = 11;
-  const engineCommands = [];
+  const engineCommands = [], scannedTabs = [], aiRequests = [];
   const tabs = [
     { id: 11, windowId: 1, title: '롤 LCK', url: 'https://example.com/lol', audible: true },
     { id: 12, windowId: 1, title: '운영체제 강의', url: 'https://example.org/lecture', audible: true },
@@ -13,8 +13,9 @@ test('frontend selection connects only its active tab and preserves audio contro
   const event = { addListener() {} };
   const storage = () => ({ get: async () => ({}), set: async () => {} });
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async url => {
+  globalThis.fetch = async (url, options) => {
     assert(String(url).endsWith("/suggest-profile"));
+    aiRequests.push(JSON.parse(options.body));
     return { ok: true, json: async () => ({ name: "탭 맞춤 알림", summaryFocus: "중요한 안내", rules: [{ text: "중요한 일정이 확정되었을 때", enabled: true }] }) };
   };
   globalThis.chrome = {
@@ -36,6 +37,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     offscreen: { hasDocument: async () => true },
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
     commands: { onCommand: event },
+    scripting: { executeScript: async ({ target }) => { scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
     notifications: { onButtonClicked: event },
   };
   await import('../extension/background.js');
@@ -52,6 +54,8 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[0].profileId, 'auto');
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(latest.slots[0].alertSetup.status, 'ready');
+    assert.deepEqual(scannedTabs, [11]);
+    assert.equal(aiRequests[0].description, "연결한 탭의 설명");
     assert(engineCommands.some(item => item.cmd === 'listen' && item.profile?.contextOnly), 'the main tab collects context without alerts');
     assert.equal((await send('save-alerts', { index: 0, tabId: 999, profile: {} })).ok, false);
     assert.equal((await send('save-alerts', { index: 0, tabId: 11, profile: { name: '내 조건', rules: [{ text: '제출 기한이 확정되면', enabled: true }] } })).ok, true);

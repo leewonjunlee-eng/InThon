@@ -9,6 +9,9 @@ export function createApi(getConfig) {
       signal: AbortSignal.timeout(path === "/suggest-profile" ? 65000 : 20000),
     });
     if (!response.ok) {
+      if (path === "/suggest-profile" && response.status === 404) {
+        throw new Error("판단 서버가 이전 버전입니다. 실행 중인 서버를 종료하고 python server/server.py로 다시 시작한 뒤 AI로 다시 제안받기를 눌러 주세요.");
+      }
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || `server ${response.status}`);
     }

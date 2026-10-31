@@ -1,16 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { alertProfileFor, cleanAlertProfile, createAutoProfiles } from "../extension/lib/auto-profiles.js";
+import { createApi } from "../extension/lib/api.js";
 
 const profile = (name = "판매 방송") => ({ name, summaryFocus: "가격과 판매 일정", rules: [
   { text: "최종 가격이 실제 공개되었을 때", enabled: true },
   { text: "판매 시작 시각이 확정되었을 때", enabled: false },
 ] });
-function fixture(suggestProfile = async () => profile()) {
+function fixture(suggestProfile = async () => profile(), readContext) {
   const slots = [{ tabId: 10, title: "신제품 공개 라이브", host: "example.com" }];
   let context = "", applies = 0;
   const controller = createAutoProfiles({ api: { suggestProfile }, slots: () => slots,
-    transcript: () => context, publish: async () => {}, apply: async () => { applies++; },
+    transcript: () => context, publish: async () => {}, apply: async () => { applies++; }, readContext,
   });
   return { slots, controller, context: value => { context = value; }, applies: () => applies };
 }
@@ -80,4 +81,42 @@ test("empty or invalid AI conditions are rejected and input sizes are bounded", 
   assert.throws(() => cleanAlertProfile({ rules: [{ text: " " }] }));
   assert.equal(cleanAlertProfile({ name: "x".repeat(200), rules: Array(20).fill({ text: "x".repeat(500) }) }).rules.length, 6);
   assert.equal(cleanAlertProfile(profile()).rules[1].enabled, false);
+});
+
+test("the connected tab is scanned before generation and restricted pages fall back explicitly", async () => {
+  let request, scannedId;
+  const f = fixture(async value => { request = value; return profile(); }, async id => {
+    scannedId = id;
+    return { title: "실제 영상 제목", description: "판매 시작과 가격 공개", pageText: "본문", captions: "지금 가격을 공개합니다." };
+  });
+  await f.controller.generate(0);
+  assert.equal(scannedId, 10);
+  assert.equal(request.title, "실제 영상 제목");
+  assert.equal(request.description, "판매 시작과 가격 공개");
+  assert.equal(f.slots[0].alertSetup.source, "page");
+  const restricted = fixture(async value => { request = value; return profile(); }, async () => { throw new Error("Cannot access page"); });
+  await restricted.controller.generate(0);
+  assert.equal(request.title, "신제품 공개 라이브");
+  assert.equal(restricted.slots[0].alertSetup.status, "ready");
+  assert.match(restricted.slots[0].alertSetup.scanError, /접근이 제한/);
+});
+
+test("disconnecting during a page scan prevents the stale page from reaching AI", async () => {
+  let finishScan, calls = 0;
+  const f = fixture(async () => { calls++; return profile(); }, () => new Promise(resolve => { finishScan = resolve; }));
+  const pending = f.controller.generate(0);
+  await Promise.resolve();
+  f.slots[0] = { tabId: null };
+  finishScan({ description: "이전 탭" });
+  await pending;
+  assert.equal(calls, 0);
+});
+
+test("an old server returns an actionable restart message rather than not found", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({ error: "not found" }) });
+  try {
+    const api = createApi(async () => ({ serverUrl: "http://127.0.0.1:8787", token: "" }));
+    await assert.rejects(api.suggestProfile({ title: "YouTube" }), /판단 서버가 이전 버전.*python server\/server.py/);
+  } finally { globalThis.fetch = originalFetch; }
 });

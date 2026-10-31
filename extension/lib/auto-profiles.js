@@ -23,25 +23,34 @@ export function contextProfile(profile, contextOnly) {
   return { ...(profile ?? { id: "context", name: "내용 파악", keywords: [], aliases: {} }), contextOnly };
 }
 
-export function createAutoProfiles({ api, slots, transcript, publish, apply }) {
+export function createAutoProfiles({ api, slots, transcript, publish, apply, readContext }) {
   async function generate(index, { refine = false } = {}) {
     const slot = slots()[index];
     if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
     const previous = slot.alertSetup;
     const setup = slot.alertSetup = {
-      ...previous, status: "generating", error: "", edited: false,
+      ...previous, status: "generating", phase: readContext ? "scanning" : "generating", error: "", edited: false,
       startedAt: previous?.startedAt ?? Date.now(), refined: refine || previous?.refined || false,
     };
     slot.profileId = "auto";
     const current = () => slots()[index] === slot && slot.alertSetup === setup && slot.profileId === "auto";
     await publish();
     try {
-      const result = await api.suggestProfile({ title: slot.title, host: slot.host,
+      let page = {};
+      setup.scanError = "";
+      if (readContext) {
+        try { page = await readContext(slot.tabId); }
+        catch { setup.scanError = "페이지 접근이 제한되어 제목과 인식된 자막으로 제안합니다."; }
+        if (!current()) return;
+        setup.phase = "generating";
+        await publish();
+      }
+      const result = await api.suggestProfile({ ...page, title: page.title || slot.title, host: slot.host,
         text: refine ? transcript(slot.tabId).slice(-6000) : "" });
       if (!current()) return;
       setup.profile = cleanAlertProfile(result);
       setup.status = "ready";
-      setup.source = refine ? "transcript" : "title";
+      setup.source = refine ? "transcript" : Object.keys(page).length ? "page" : "title";
     } catch (error) {
       if (!current()) return;
       setup.status = "error";
