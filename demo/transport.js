@@ -1,5 +1,6 @@
 import { AudioEngine } from "../extension/engine.js";
 import { createApi } from "../extension/lib/api.js";
+import { alertProfileFor, contextProfile, createAutoProfiles } from "../extension/lib/auto-profiles.js";
 import { DEFAULT_SETTINGS, PROFILES, emptySlot, computeRoles, gainFor } from "../extension/lib/logic.js";
 
 // Preview uses bundled audio, never browser tabs or a microphone.
@@ -22,11 +23,21 @@ export function createPreviewTransport() {
   const media = new Map();
   const api = createApi(async () => state.settings);
   const publish = () => listener(structuredClone(state));
+  const autoProfiles = createAutoProfiles({ api, slots: () => state.slots,
+    transcript: id => state.transcript.filter(line => line.id === id).map(line => line.text).join("\n"),
+    publish, apply,
+  });
+  const generateAlerts = index => autoProfiles.generate(index).catch(error => { state.status = error.message; publish(); });
   const snapshot = () => ({ manual: state.manual, slots: structuredClone(state.slots) });
   function onEvent(event) {
     if (event.type === "status") state.status = event.text;
     if (event.type === "moment") state.moments = [event.moment, ...state.moments].slice(0, 30);
-    if (event.type === "transcript") state.transcript = [...state.transcript, event].slice(-40);
+    if (event.type === "transcript") {
+      const index = state.slots.findIndex(slot => slot.tabId === event.id);
+      if (index === -1) return;
+      state.transcript = [...state.transcript, event].slice(-40);
+      void Promise.resolve(autoProfiles.observe(index)).catch(() => {});
+    }
     if (event.type === "return-summary") {
       const slot = state.slots.findIndex(item => item.tabId === event.id);
       if (slot >= 0) state.returnSummary = { ...event, slot };
@@ -39,9 +50,9 @@ export function createPreviewTransport() {
       slot.role = roles[i];
       if (slot.tabId === null || !engine) return;
       engine.setOutput(slot.tabId, { gain: gainFor(slot, slot.role, state.settings), pan: slot.pan });
-      // Recognition is opt-in via a profile selection in the preview.
-      const profile = state.profiles.find(item => item.id === slot.profileId);
-      engine.setListen(slot.tabId, slot.role === "standby" ? profile : null, state.settings.sensitivity);
+      const active = slot.profileId === "auto" ? alertProfileFor(slot) : state.profiles.find(item => item.id === slot.profileId);
+      const profile = slot.profileId === "auto" ? contextProfile(active, slot.role !== "standby" || !active) : slot.role === "standby" ? active : null;
+      engine.setListen(slot.tabId, profile, state.settings.sensitivity);
     });
     if (engine) engine.duck = state.settings.duck;
     publish();
@@ -68,7 +79,7 @@ export function createPreviewTransport() {
       throw error;
     }
     media.set(tabId, { audio, node });
-    state.slots[index] = { ...emptySlot(state.settings), tabId, title: source.title, host: source.host, topic: source.topic };
+    state.slots[index] = { ...emptySlot(state.settings), tabId, title: source.title, host: source.host, topic: source.topic, profileId: "auto" };
     if (state.manual === null) state.manual = index;
     state.status = "샘플 음원 재생 중 · 실제 탭 캡처는 Chrome 확장에서 사용하세요.";
   }
@@ -78,7 +89,7 @@ export function createPreviewTransport() {
     try {
       switch (cmd) {
         case "state": break;
-        case "connect": await connect(index, payload.tabId); break;
+        case "connect": await connect(index, payload.tabId); void generateAlerts(index); break;
         case "disconnect": {
           const item = media.get(slot.tabId);
           item?.audio.pause(); item?.node.disconnect();
@@ -127,9 +138,19 @@ export function createPreviewTransport() {
           });
           if (payload.patch.screen) state.status = "웹 체험에는 화면 캡처가 없습니다. Chrome 확장에서 사용하세요.";
           break;
-        case "set-profile": slot.profileId = payload.profileId || null; break;
+        case "set-profile":
+          if (payload.profileId !== "auto" && slot.alertSetup?.status === "generating") slot.alertSetup = { ...slot.alertSetup, status: slot.alertSetup.profile ? "ready" : "error", error: "자동 생성을 중단했습니다." };
+          slot.profileId = payload.profileId || null;
+          if (slot.profileId === "auto" && !slot.alertSetup) void generateAlerts(index);
+          break;
         case "create-profile": return { ok: true, result: { ...await api.profile(payload.request), id: `custom-${Date.now()}`, aliases: {} } };
         case "save-profile": state.profiles.push(payload.profile); break;
+        case "generate-alerts":
+          if (!slot || slot.tabId !== payload.tabId) throw new Error("연결된 탭이 바뀌었습니다.");
+          void generateAlerts(index); break;
+        case "save-alerts":
+          if (!slot || slot.tabId !== payload.tabId) throw new Error("연결된 탭이 바뀌었습니다.");
+          autoProfiles.save(index, payload.profile); break;
         case "dismiss": state.moments = state.moments.filter(item => item.id !== payload.id); break;
         case "clear-return": state.returnSummary = null; break;
         case "goto": case "pip": state.status = "실제 탭 이동과 소형 플레이어는 Chrome 확장에서 사용할 수 있어요."; break;

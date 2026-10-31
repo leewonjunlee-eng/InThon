@@ -90,12 +90,19 @@ export class AudioEngine {
   setListen(id, profile, sensitivity = "normal", screen = false) {
     const channel = this.channels.get(id);
     if (!channel) return;
-    const watch = Boolean(profile && screen);
+    const watch = Boolean(profile && !profile.contextOnly && screen);
     if (watch !== Boolean(channel.stopScreen)) {
       channel.stopScreen?.();
       channel.stopScreen = watch ? this.watchScreen(channel) : null;
     }
     if (profile && channel.profile) {
+      if (!channel.profile.contextOnly && profile.contextOnly) this.returnSummary(channel, channel.profile);
+      if (channel.profile.contextOnly && !profile.contextOnly) {
+        channel.lines = [];
+        channel.digests = [];
+        channel.lastJudgedLine = 0;
+        channel.listenedAt = channel.lastDigestAt = channel.lastJudgeAt = Date.now();
+      }
       channel.profile = profile;
       channel.detector.thresholdDb = SURGE_DB[sensitivity];
       return;
@@ -112,7 +119,7 @@ export class AudioEngine {
       channel.stopRecognition?.();
       channel.stopRecognition = null;
       channel.profile = null;
-      this.returnSummary(channel, finished);
+      if (!finished.contextOnly) this.returnSummary(channel, finished);
     }
   }
 
@@ -157,7 +164,7 @@ export class AudioEngine {
     try {
       const { important, summary } = await this.api.vision(canvas.toDataURL("image/jpeg", 0.6), condition);
       this.addLine(channel, `(화면 변화: ${summary})`);
-      if (!important || !channel.profile) return;
+      if (!important || channel.profile?.contextOnly || channel.profile?.condition !== condition || this.channels.get(channel.id) !== channel) return;
       const now = Date.now();
       channel.lastMomentAt = now;
       channel.lastMomentKind = "screen";
@@ -225,6 +232,7 @@ export class AudioEngine {
     if (!raw || !channel.profile) return;
     const text = correctTranscript(raw, channel.profile.aliases);
     this.addLine(channel, text);
+    if (channel.profile.contextOnly) return;
     const keyword = findKeyword(text, channel.profile.keywords);
     if (keyword) this.moment(channel, { kind: "keyword", keyword });
   }
@@ -234,7 +242,7 @@ export class AudioEngine {
     const power = channel.samples.reduce((sum, value) => sum + value * value, 0) / channel.samples.length;
     channel.db = 10 * Math.log10(power);
     if (this.duck) this.applyDuck();
-    if (!channel.profile) return;
+    if (!channel.profile || channel.profile.contextOnly) return;
     const now = Date.now();
     if (channel.detector.push(channel.db, now)) {
       this.addLine(channel, "(소리 변화: 함성이나 고함 급등)");
@@ -270,7 +278,7 @@ export class AudioEngine {
   }
 
   async moment(channel, { kind, keyword = null }) {
-    if (!channel.profile) return;
+    if (!channel.profile || channel.profile.contextOnly) return;
     const now = Date.now();
     // 함성 알림 직후에 나온 키워드는 더 확실한 신호이므로 간격 제한을 받지 않는다.
     const upgrade = kind === "keyword" && channel.lastMomentKind !== "keyword";
@@ -278,9 +286,11 @@ export class AudioEngine {
     channel.lastMomentAt = now;
     channel.lastMomentKind = kind;
     const { condition, summaryFocus, name } = channel.profile;
+    const current = () => this.channels.get(channel.id) === channel && !channel.profile?.contextOnly && channel.profile?.condition === condition;
     const lines = this.recent(channel);
     const text = linesToText(lines);
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
+    if (channel.profile.requireEvidence && !hasSpeech) { channel.lastMomentAt = 0; return; }
     let confident = kind === "keyword";
 
     if (!confident && hasSpeech) {
@@ -292,7 +302,7 @@ export class AudioEngine {
         }
         confident = true;
       } catch {
-        if (kind === "judge") {
+        if (kind === "judge" || channel.profile?.requireEvidence) {
           channel.lastMomentAt = 0;
           return;
         }
@@ -312,6 +322,7 @@ export class AudioEngine {
         summary = `요약 서버에 연결하지 못했습니다. 최근 자막: ${lines.at(-1).text}`;
       }
     }
+    if (!current()) return;
     this.emit({
       type: "moment",
       moment: {

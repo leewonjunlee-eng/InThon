@@ -1,4 +1,5 @@
 import { createApi } from "./lib/api.js";
+import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-profiles.js";
 import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf } from "./lib/logic.js";
 
 const STANDBY_DELAY_MS = 2000;
@@ -35,6 +36,12 @@ async function load() {
   const { saved = {} } = await chrome.storage.local.get("saved");
   state = { ...initialState(), ...session, ...saved };
   state.settings = { ...DEFAULT_SETTINGS, ...state.settings };
+  for (const slot of state.slots) {
+    if (slot.alertSetup?.status === "generating") {
+      slot.alertSetup.status = "error";
+      slot.alertSetup.error = "생성이 중단됐습니다. 다시 만들어 주세요.";
+    }
+  }
   return state;
 }
 
@@ -53,7 +60,15 @@ async function commit() {
 const profiles = () => [...PROFILES, ...state.customProfiles];
 const topics = () => [...new Set([...profiles().map((profile) => profile.name), ...WORK_TOPICS])];
 const slotIndex = (tabId) => state.slots.findIndex((slot) => slot.tabId === tabId);
-const profileOf = (slot) => profiles().find((profile) => profile.id === slot.profileId) ?? null;
+const profileOf = (slot) => slot.profileId === "auto" ? alertProfileFor(slot) : profiles().find((profile) => profile.id === slot.profileId) ?? null;
+const autoProfiles = createAutoProfiles({ api, slots: () => state.slots,
+  transcript: id => state.transcript.filter(line => line.tabId === id).map(line => line.text).join("\n"),
+  publish: commit, apply: async () => { await pushOutputs(); await commit(); },
+});
+const generateAlerts = (index, options) => autoProfiles.generate(index, options).catch(error => {
+  state.status = error.message;
+  return commit();
+});
 
 // 여러 요청이 동시에 와도 문서는 하나만 만들고, 응답할 때까지 기다린다.
 function ensureOffscreen() {
@@ -108,7 +123,10 @@ async function pushOutputs() {
   for (const slot of slots) {
     if (slot.tabId === null) continue;
     await toEngine("output", { tabId: slot.tabId, gain: gainFor(slot, slot.role, settings), pan: slot.pan });
-    const profile = slot.role === "standby" ? profileOf(slot) : null;
+    const active = profileOf(slot);
+    const profile = slot.profileId === "auto"
+      ? contextProfile(active, slot.role !== "standby" || !active)
+      : slot.role === "standby" ? active : null;
     await toEngine("listen", { tabId: slot.tabId, profile, sensitivity: settings.sensitivity, screen: settings.screen });
   }
 }
@@ -149,11 +167,11 @@ async function connectTab(tab, index) {
   const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
   await toEngine("capture", { streamId, tabId: tab.id });
   const topic = await topicFor(tab);
-  const match = profiles().find((profile) => profile.name === topic);
   state.slots[free] = {
-    ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: match?.id ?? null,
+    ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: "auto",
   };
   await applyRoles({ immediate: true });
+  void generateAlerts(free);
 }
 
 async function disconnect(index) {
@@ -215,7 +233,7 @@ async function alertMoment(moment) {
   }
   chrome.notifications.create(NOTIFICATION_PREFIX + moment.id, {
     type: "basic",
-    iconUrl: "icon.png",
+    iconUrl: "Frame 5232.png",
     title: `소리 ${"AB"[index]} · ${moment.topic}`,
     message: moment.summary,
     buttons: [{ title: "잠깐 듣기" }, { title: "여기에 집중" }],
@@ -248,7 +266,10 @@ async function onEngineEvent(event) {
     const index = slotIndex(event.id);
     if (index !== -1) state.returnSummary = { ...event, slot: index, title: state.slots[index].title };
   } else if (event.type === "transcript") {
+    const index = slotIndex(event.id);
+    if (index === -1) return;
     state.transcript = [...state.transcript, { tabId: event.id, time: event.time, text: event.text }].slice(-40);
+    void Promise.resolve(autoProfiles.observe(index)).catch(() => {});
   } else if (event.type === "status") {
     state.status = event.text;
   }
@@ -331,13 +352,25 @@ const commands = {
   },
   "set-profile": ({ index, profileId }) => {
     const slot = state.slots[index];
+    if (profileId !== "auto" && slot.alertSetup?.status === "generating") {
+      slot.alertSetup = { ...slot.alertSetup, status: slot.alertSetup.profile ? "ready" : "error", error: "자동 생성을 중단했습니다. 다시 제안받을 수 있어요." };
+    }
     slot.profileId = profileId || null;
     const profile = profileOf(slot);
     if (profile) slot.topic = profile.name;
+    if (profileId === "auto" && !slot.alertSetup) void generateAlerts(index);
   },
   "create-profile": ({ request }) => createProfile(request),
   "save-profile": ({ profile }) => {
     state.customProfiles = [...state.customProfiles, profile];
+  },
+  "generate-alerts": ({ index, tabId }) => {
+    if (state.slots[index]?.tabId !== tabId) throw new Error("연결된 탭이 바뀌었습니다.");
+    void generateAlerts(index);
+  },
+  "save-alerts": ({ index, tabId, profile }) => {
+    if (state.slots[index]?.tabId !== tabId) throw new Error("연결된 탭이 바뀌었습니다.");
+    autoProfiles.save(index, profile);
   },
   settings: ({ patch }) => {
     Object.assign(state.settings, patch);

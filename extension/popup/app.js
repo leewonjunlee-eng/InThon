@@ -10,6 +10,7 @@ let tab = "sound";
 let notice = "";
 let draft = null;
 let busy = false;
+let alertEditor = null;
 const connecting = new Set();
 
 const escapeHTML = (value) =>
@@ -70,6 +71,7 @@ function renderSlot(slot, i) {
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
+  html += renderAlertSummary(slot, i);
   html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 볼륨</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 볼륨"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
   html += button(focused ? "집중 중" : "여기에 집중", `focus:${i}`, focused ? "solid full" : "full", focused);
@@ -97,7 +99,34 @@ function renderReturn() {
 
 function renderProfileSelect(slot, i) {
   const options = state.profiles.map((item) => `<option value="${escapeHTML(item.id)}" ${slot.profileId === item.id ? "selected" : ""}>${escapeHTML(item.name)}</option>`).join("");
-  return `<label class="stack"><span>소리 ${label(i)} · ${escapeHTML(slot.title).slice(0, 20)}</span><select data-profile="${i}"><option value="">대신 듣지 않음</option>${options}</select></label>`;
+  return `<label class="stack"><span>소리 ${label(i)} · ${escapeHTML(slot.title).slice(0, 20)}</span><select data-profile="${i}"><option value="" ${!slot.profileId ? "selected" : ""}>대신 듣지 않음</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI가 만든 이 탭의 조건</option>${options}</select></label>${renderAlertSummary(slot, i)}`;
+}
+
+function renderAlertSummary(slot, i) {
+  const setup = slot.alertSetup;
+  if (slot.profileId !== "auto") return "";
+  const enabled = setup?.profile?.rules.filter(rule => rule.enabled).length ?? 0;
+  const status = setup?.status === "generating" ? "AI가 이 탭의 알림 조건을 만드는 중…"
+    : setup?.status === "error" ? `조건 생성 실패: ${setup.error}`
+    : setup?.profile ? `${setup.profile.name} · ${enabled ? `${enabled}개 조건 사용 중` : "알림 조건 모두 꺼짐"}` : "이 탭의 알림을 준비하고 있어요.";
+  const source = setup?.edited ? "직접 수정한 조건을 유지합니다." : setup?.source === "transcript" ? "최근 자막을 참고해 보완했어요." : "탭 제목으로 제안하고, 자막이 모이면 한 번 보완합니다.";
+  return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet")}</div>`;
+}
+
+function renderAlertEditor() {
+  const { index, tabId, profile } = alertEditor;
+  const slot = state.slots[index];
+  if (slot.tabId !== tabId) return `<div class="notice">연결된 탭이 바뀌었습니다.</div>${button("돌아가기", "close-alert")}`;
+  let html = button("← 돌아가기", "close-alert", "quiet") + `<h3>소리 ${label(index)} · 알림 조건</h3><p class="sub">${escapeHTML(slot.title)}</p><p class="sub">체크한 상황 중 하나가 실제로 발생하면 대기 중에 알려드려요. 저장한 수정 내용은 AI가 덮어쓰지 않습니다.</p>`;
+  if (slot.alertSetup?.status === "generating") html += `<div class="notice" role="status">AI가 조건을 제안하고 있어요. 기다리는 동안 직접 작성해도 됩니다.</div>`;
+  if (slot.alertSetup?.status === "error") html += `<div class="notice" role="alert">${escapeHTML(slot.alertSetup.error)} 직접 작성하거나 다시 시도해 주세요.</div>`;
+  html += `<label class="stack">알림 이름<input type="text" maxlength="60" data-alert-field="name" value="${escapeHTML(profile.name)}"></label>`;
+  html += `<div class="alert-rules">${profile.rules.map((rule, j) => `<div class="alert-rule"><label class="check"><input type="checkbox" data-alert-enabled="${j}" ${rule.enabled ? "checked" : ""}> 조건 ${j + 1} 사용</label><textarea rows="3" maxlength="240" data-alert-rule="${j}" aria-label="알림 조건 ${j + 1}">${escapeHTML(rule.text)}</textarea>${button("삭제", `remove-rule:${j}`, "quiet")}</div>`).join("")}</div>`;
+  html += button("＋ 조건 추가", "add-rule", "full", profile.rules.length >= 6);
+  html += `<label class="stack">요약에서 알고 싶은 내용<textarea rows="2" maxlength="300" data-alert-field="summaryFocus">${escapeHTML(profile.summaryFocus)}</textarea></label>`;
+  html += `<div class="two">${button("저장하고 적용", "save-alert", "solid")}${button("취소", "close-alert")}</div>`;
+  html += button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "AI로 다시 제안받기", "regenerate-alert", "full", slot.alertSetup?.status === "generating");
+  return html;
 }
 
 function renderEntrust() {
@@ -125,7 +154,7 @@ function renderProfiles() {
 function render() {
   if (!state) return;
   const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
-  let html = picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
+  let html = alertEditor ? renderAlertEditor() : picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
   const message = notice || state.status;
   main.innerHTML = html + `<p id="notice" class="status" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
   main.querySelectorAll("details[data-profile-detail]").forEach(item => { item.open = openProfiles.has(item.dataset.profileDetail); });
@@ -137,6 +166,7 @@ async function dispatch(action) {
   notice = "";
   switch (name) {
     case "tab":
+      alertEditor = null;
       tab = arg;
       picker = null;
       return render();
@@ -146,6 +176,28 @@ async function dispatch(action) {
     case "back":
       picker = null;
       return render();
+    case "edit-alert": {
+      const slot = state.slots[i];
+      alertEditor = { index: i, tabId: slot.tabId, dirty: false, profile: structuredClone(slot.alertSetup?.profile ?? {
+        name: "이 탭의 알림", summaryFocus: "", rules: [{ text: "", enabled: true }],
+      }) };
+      return render();
+    }
+    case "close-alert": alertEditor = null; return render();
+    case "add-rule":
+      if (alertEditor.profile.rules.length < 6) alertEditor.profile.rules.push({ text: "", enabled: true });
+      alertEditor.dirty = true; return render();
+    case "remove-rule": alertEditor.profile.rules.splice(i, 1); alertEditor.dirty = true; return render();
+    case "save-alert": {
+      const reply = await act("save-alerts", { index: alertEditor.index, tabId: alertEditor.tabId, profile: alertEditor.profile });
+      if (reply?.ok) { alertEditor = null; notice = "알림 조건을 저장했어요."; render(); }
+      return;
+    }
+    case "regenerate-alert": {
+      const { index, tabId } = alertEditor;
+      alertEditor = null;
+      return act("generate-alerts", { index, tabId });
+    }
     case "select": {
       if (picker === null) return;
       const source = (state.available ?? state.audible).find(item => item.id === i);
@@ -208,6 +260,12 @@ root.addEventListener("click", (event) => {
 });
 root.addEventListener("input", (event) => {
   const { dataset, value } = event.target;
+  if (alertEditor && (dataset.alertField || dataset.alertRule !== undefined || dataset.alertEnabled !== undefined)) {
+    alertEditor.dirty = true;
+    if (dataset.alertField) alertEditor.profile[dataset.alertField] = value;
+    if (dataset.alertRule !== undefined) alertEditor.profile.rules[Number(dataset.alertRule)].text = value;
+    if (dataset.alertEnabled !== undefined) alertEditor.profile.rules[Number(dataset.alertEnabled)].enabled = event.target.checked;
+  }
   if (dataset.settingRange) {
     document.getElementById(`setting-${dataset.settingRange}`).textContent = `${value}%`;
   }
@@ -227,10 +285,14 @@ root.addEventListener("change", (event) => {
 });
 transport.subscribe((nextState) => {
   state = nextState;
+  if (alertEditor && !alertEditor.dirty) {
+    const slot = state.slots[alertEditor.index];
+    if (slot.tabId === alertEditor.tabId && slot.alertSetup?.profile) alertEditor.profile = structuredClone(slot.alertSetup.profile);
+  }
   state.slots.forEach((slot, i) => {
     if (slot.tabId !== null) selections[i] = { id: slot.tabId, title: slot.title, host: slot.host };
   });
-  const editing = ["INPUT", "SELECT"].includes(document.activeElement?.tagName);
+  const editing = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
   if (!editing) render();
 });
 act("state");

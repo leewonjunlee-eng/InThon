@@ -6,7 +6,7 @@ export function createApi(getConfig) {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { "X-Demo-Token": token } : {}) },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(path === "/suggest-profile" ? 65000 : 20000),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -20,5 +20,6 @@ export function createApi(getConfig) {
     classify: (host, title, topics) => post("/classify", { host, title, topics }),
     vision: (image, condition) => post("/vision", { image, condition }),
     profile: (request) => post("/profile", { request }),
+    suggestProfile: (context) => post("/suggest-profile", context),
   };
 }

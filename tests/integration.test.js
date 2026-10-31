@@ -12,6 +12,11 @@ test('frontend selection connects only its active tab and preserves audio contro
   ];
   const event = { addListener() {} };
   const storage = () => ({ get: async () => ({}), set: async () => {} });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async url => {
+    assert(String(url).endsWith("/suggest-profile"));
+    return { ok: true, json: async () => ({ name: "탭 맞춤 알림", summaryFocus: "중요한 안내", rules: [{ text: "중요한 일정이 확정되었을 때", enabled: true }] }) };
+  };
   globalThis.chrome = {
     storage: { session: storage(), local: storage() },
     runtime: {
@@ -44,6 +49,13 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal((await send('connect', { index: 0, tabId: 11 })).ok, true);
     assert.equal(latest.slots[0].tabId, 11);
     assert.equal(latest.slots[0].role, 'main');
+    assert.equal(latest.slots[0].profileId, 'auto');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(latest.slots[0].alertSetup.status, 'ready');
+    assert(engineCommands.some(item => item.cmd === 'listen' && item.profile?.contextOnly), 'the main tab collects context without alerts');
+    assert.equal((await send('save-alerts', { index: 0, tabId: 999, profile: {} })).ok, false);
+    assert.equal((await send('save-alerts', { index: 0, tabId: 11, profile: { name: '내 조건', rules: [{ text: '제출 기한이 확정되면', enabled: true }] } })).ok, true);
+    assert.equal(latest.slots[0].alertSetup.edited, true);
     activeId = 12;
     assert.equal((await send('connect', { index: 0, tabId: 12 })).ok, false, 'cannot overwrite a connected slot');
     assert.equal((await send('connect', { index: 1, tabId: 12 })).ok, true);
@@ -63,5 +75,5 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[0].tabId, null);
     assert(engineCommands.some(item => item.cmd === 'remove' && item.tabId === 11));
     await send('disconnect', { index: 1 });
-  } finally { delete globalThis.chrome; }
+  } finally { delete globalThis.chrome; globalThis.fetch = originalFetch; }
 });
