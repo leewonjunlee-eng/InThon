@@ -44,7 +44,7 @@ function applyView() {
     engine.setOutput(slot.tabId, { gain: gainFor(slot, slot.role, settings), pan: slot.pan });
     engine.setListen(slot.tabId, slot.role === "standby" ? slot.profile : null, settings.sensitivity);
     const name = `role-${slot.tabId}`;
-    document.getElementById(name).textContent = slot.role === "main" ? "메인 · 80%" : "대기 · 15% · 대신 듣는 중";
+    document.getElementById(name).textContent = slot.role === "main" ? "집중 · 80%" : "대기 · 15% · 대신 듣는 중";
     document.getElementById(name).parentElement.classList.toggle("main", slot.role === "main");
   });
 }

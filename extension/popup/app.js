@@ -32,7 +32,7 @@ const escapeHTML = (value) =>
       ],
   );
 const label = (i) => `${i + 1}번`;
-const ROLE = { main: "메인", standby: "대기" };
+const ROLE = { main: "집중", standby: "대기" };
 
 function button(text, action, cls = "", disabled = false, extra = "") {
   return `<button type="button" class="${cls}" data-action="${action}" ${disabled ? "disabled" : ""} ${extra}>${text}</button>`;
@@ -142,7 +142,7 @@ function volumeSetting(name, title) {
   return `<label class="setting-volume"><span class="row"><span>${title}</span><output id="setting-${name}">${state.settings[name]}%</output></span><input type="range" min="0" max="100" value="${state.settings[name]}" data-setting-range="${name}" aria-label="${title}"></label>`;
 }
 function renderGeneral() {
-  return `<section class="settings-section sound-settings"><h3>음량</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 집중 전환 제안", "대기 탭을 3초 이상 보면 물어봐요. 확인해야 음량이 바뀝니다.")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
+  return `<section class="settings-section sound-settings"><h3>음량</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 집중 전환 제안", "대기 탭을 3초 이상 보면 물어봐요. 확인해야 음량이 바뀝니다.")}${volumeSetting("focusVol", "집중 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
     <section class="settings-section"><h3>알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}</div></section>
     <p class="shortcut-help">(연결) Ctrl+Shift+K · (집중 전환) Ctrl+Shift+→ · (복귀) Ctrl+Shift+←</p>`;
 }
