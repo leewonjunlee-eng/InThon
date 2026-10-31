@@ -3,19 +3,19 @@ import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, emptySlot } from "../extension/lib/logic.js";
 
 test("the real popup editor keeps unsaved edits during updates and submits enabled conditions", async () => {
-  const handlers = new Map(), sent = [];
+  const handlers = new Map(), sent = [], savedSelections = [];
   const main = { innerHTML: "", querySelectorAll: () => [] };
   const root = { addEventListener: (event, handler) => handlers.set(event, handler) };
   const slot = { ...emptySlot(), tabId: 11, title: "제품 공개", host: "example.com", role: "standby", profileId: "auto",
     alertSetup: { status: "ready", source: "title", profile: { name: "판매 알림", summaryFocus: "가격", rules: [{ text: "가격이 공개되면", enabled: true }] } } };
-  const state = { slots: [slot, emptySlot()], profiles: [], settings: DEFAULT_SETTINGS, status: "", available: [], manual: null, peek: null };
+  const state = { slots: [slot, emptySlot()], profiles: [], settings: DEFAULT_SETTINGS, view: { tabId: 11 }, status: "", available: [{ id: 11, title: "제품 공개" }, { id: 12, title: "다른 탭" }], manual: null, peek: null };
   let subscriber;
   const documentBefore = globalThis.document, chromeBefore = globalThis.chrome;
   globalThis.document = { documentElement: { classList: { add() {} } }, activeElement: null,
     getElementById: id => id === "ab-mock" ? root : main };
   globalThis.chrome = { runtime: { id: "test", onMessage: { addListener: handler => { subscriber = handler; } },
     sendMessage: async message => { sent.push(message); if (message.cmd === "state") subscriber({ to: "ui", state }); return { ok: true }; } },
-    storage: { session: { get: async () => ({}), set: async () => {} } } };
+    storage: { session: { get: async () => ({ uiSelections: [null, { id: 12, title: "다른 탭" }] }), set: async value => { savedSelections.push(structuredClone(value.uiSelections)); } } } };
   const click = async action => {
     handlers.get("click")({ target: { closest: () => ({ dataset: { action }, disabled: false }) } });
     await new Promise(resolve => setImmediate(resolve));
@@ -62,6 +62,17 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     await click('restore-server');
     assert(sent.some(message => message.cmd === 'restore-server'));
     assert(main.innerHTML.includes('공용 AI 서버 연결을 복원했어요'));
+    await click('tab:sound');
+    await click('edit-alert:0');
+    globalThis.document.activeElement = { tagName: 'TEXTAREA' };
+    subscriber({ to: 'ui', state: { ...state, slots: [emptySlot(), emptySlot()], available: [{ id: 12, title: '다른 탭' }] } });
+    assert(!main.innerHTML.includes('AI에게 원하는 알림 설명하기'), 'closed tab dismisses its editor even while typing');
+    assert(!main.innerHTML.includes('제품 공개'), 'closed tab does not reappear as a selected source');
+    assert(main.innerHTML.includes('다른 탭'), 'remaining selection stays visible');
+    assert.deepEqual(savedSelections.at(-1), [null, { id: 12, title: '다른 탭' }]);
+    subscriber({ to: 'ui', state: { ...state, slots: [emptySlot(), emptySlot()], available: [] } });
+    assert.deepEqual(savedSelections.at(-1), [null, null]);
+    assert(!main.innerHTML.includes('선택한 탭으로 이동'), 'closing a selected tab clears its stale reconnect button');
   } finally {
     globalThis.document = documentBefore;
     globalThis.chrome = chromeBefore;

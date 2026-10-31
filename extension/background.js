@@ -513,10 +513,17 @@ chrome.tabs.onUpdated.addListener((tabId, change) => {
 });
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   await load();
+  const { uiSelections } = await chrome.storage.session.get("uiSelections");
+  if (uiSelections?.some(source => source?.id === tabId)) {
+    await chrome.storage.session.set({ uiSelections: uiSelections.map(source => source?.id === tabId ? null : source) });
+  }
+  await refreshView();
   const index = slotIndex(tabId);
   if (index !== -1) {
     state.status = `${index + 1}번 탭이 닫혔습니다.`;
     await disconnect(index);
+  } else {
+    await applyRoles({ immediate: true });
   }
 });
 chrome.windows.onFocusChanged.addListener(async () => {

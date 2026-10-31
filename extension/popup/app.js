@@ -329,6 +329,18 @@ root.addEventListener("change", (event) => {
 });
 transport.subscribe((nextState) => {
   state = nextState;
+  const availableIds = new Set(state.available?.map(source => source.id));
+  let removedSelection = false;
+  selections = selections.map(source => {
+    if (source && state.available && !availableIds.has(source.id)) {
+      removedSelection = true;
+      return null;
+    }
+    return source;
+  });
+  if (removedSelection) void transport.saveSelections(selections);
+  const closedEditor = alertEditor && state.slots[alertEditor.index].tabId !== alertEditor.tabId;
+  if (closedEditor) alertEditor = null;
   if (alertEditor && !alertEditor.dirty) {
     const slot = state.slots[alertEditor.index];
     if (slot.tabId === alertEditor.tabId && slot.alertSetup?.profile) alertEditor.profile = structuredClone(slot.alertSetup.profile);
@@ -337,6 +349,6 @@ transport.subscribe((nextState) => {
     if (slot.tabId !== null) selections[i] = { id: slot.tabId, title: slot.title, host: slot.host };
   });
   const editing = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
-  if (!editing) render();
+  if (!editing || removedSelection || closedEditor) render();
 });
 act("state");

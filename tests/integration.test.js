@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // Exercise the real background message boundary with Chrome APIs replaced by fakes.
 test('frontend selection connects only its active tab and preserves audio controls', async () => {
-  let handler, latest, shortcut, notificationClick;
+  let handler, latest, shortcut, notificationClick, tabRemoved;
   let activeId = 11;
   let windowFocused = true;
   const contentMessages = [], notifications = new Map();
@@ -13,6 +13,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     { id: 12, windowId: 1, title: '운영체제 강의', url: 'https://example.org/lecture', audible: true },
   ];
   const event = { addListener() {} };
+  const sessionData = {};
   const storage = () => ({ get: async () => ({}), set: async () => {} });
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
@@ -22,7 +23,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     return { ok: true, json: async () => ({ name: "탭 맞춤 알림", summaryFocus: "중요한 안내", rules: [{ text: "중요한 일정이 확정되었을 때", enabled: true }] }) };
   };
   globalThis.chrome = {
-    storage: { session: storage(), local: storage() },
+    storage: { session: { get: async () => structuredClone(sessionData), set: async value => Object.assign(sessionData, structuredClone(value)) }, local: storage() },
     runtime: {
       onMessage: { addListener(fn) { handler = fn; } },
       async sendMessage(message) {
@@ -35,7 +36,7 @@ test('frontend selection connects only its active tab and preserves audio contro
       get: async id => { const tab = tabs.find(tab => tab.id === id); if (!tab) throw new Error("missing tab"); return tab; },
       query: async query => query.active ? tabs.filter(tab => tab.id === activeId) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
-      onActivated: event, onUpdated: event, onRemoved: event,
+      onActivated: event, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
       sendMessage: async (id, message) => { contentMessages.push({ id, ...message }); return { ok: true }; },
     },
     windows: { getLastFocused: async () => ({ focused: windowFocused }), update: async () => {}, onFocusChanged: event },
@@ -153,6 +154,20 @@ test('frontend selection connects only its active tab and preserves audio contro
     await send('disconnect', { index: 0 });
     assert.equal(latest.slots[0].tabId, null);
     assert(engineCommands.some(item => item.cmd === 'remove' && item.tabId === 11));
-    await send('disconnect', { index: 1 });
+    sessionData.uiSelections = [{ id: 11, title: '롤 LCK' }, { id: 12, title: '운영체제 강의' }];
+    await send('focus', { index: 1 });
+    tabs.splice(tabs.findIndex(tab => tab.id === 12), 1);
+    activeId = 11;
+    await tabRemoved(12);
+    assert.equal(latest.slots[1].tabId, null, 'closing a connected tab clears its slot');
+    assert.equal(latest.manual, null, 'closing the focused tab clears manual focus');
+    assert.equal(latest.view.tabId, 11);
+    assert(engineCommands.some(item => item.cmd === 'remove' && item.tabId === 12));
+    assert.equal(sessionData.uiSelections[1], null, 'popup selection is cleared even with popup closed');
+    assert.equal(sessionData.uiSelections[0].id, 11, 'other selections are preserved');
+    tabs.splice(tabs.findIndex(tab => tab.id === 11), 1);
+    await tabRemoved(11);
+    assert.deepEqual(sessionData.uiSelections, [null, null], 'closing a selected but disconnected tab also clears it');
+    assert.deepEqual(latest.available, [], 'popup is notified when an unconnected tab closes');
   } finally { delete globalThis.chrome; globalThis.fetch = originalFetch; }
 });
