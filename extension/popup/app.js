@@ -1,4 +1,4 @@
-import { directKeywords } from "../lib/auto-profiles.js";
+import { directKeywords, keywordExamples } from "../lib/auto-profiles.js";
 import { numberConditions } from "../lib/presets.js";
 import { createTransport } from "../lib/transport.js";
 const transport = await createTransport();
@@ -116,11 +116,11 @@ function renderAlertSummary(slot, i) {
 
 function presetFields(profile, target) {
   const condition = target === "alert" ? numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")) : profile.condition;
-  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>AI가 판단할 알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>바로 알림 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML(directKeywords(profile).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">AI는 알림 조건만 만들어요. 키워드는 직접 입력하고 쉼표로 구분하세요. 이 단어가 들리면 AI 조건 판단 없이 바로 알려요. 자주 나오는 단어는 알림이 많아질 수 있어요.</span></label>`;
+  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>AI가 판단할 알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>키워드 설정</span><input type="text" data-${target}-field="keywords" value="${escapeHTML(directKeywords(profile).join(", "))}" placeholder="${escapeHTML(keywordExamples(profile, condition).length ? `예: ${keywordExamples(profile, condition).join(", ")}` : "키워드를 입력하세요")}"><span class="sub">키워드는 직접 입력하고 쉼표 로 구분하세요. 자주 나오는 단어는 알림이 많아질 수 있어요.</span></label>`;
 }
 
 function presetKeywordDetail(profile) {
-  return `<section class="settings-section"><h3>바로 알림 키워드</h3><div class="preset-description">${escapeHTML((profile.keywords ?? []).join(", ") || "없음")}</div></section>`;
+  return `<section class="settings-section"><h3>키워드 설정</h3><div class="preset-description">${escapeHTML((profile.keywords ?? []).join(", ") || "없음")}</div></section>`;
 }
 
 function renderAlertEditor() {
@@ -298,7 +298,7 @@ async function dispatch(action) {
       generation++; busy = false; draft = null; confirmDelete = false; presetPage = "list"; return render();
     case "preset-from-alert": {
       const profile = alertEditor.profile;
-      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")), summaryFocus: "", keywords: directKeywords(profile), aliases: {} };
+      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")), summaryFocus: "", keywords: directKeywords(profile), keywordExamples: profile.keywordExamples ?? [], aliases: {} };
       alertEditor = null; tab = "entrust"; settingsTab = "presets"; presetPage = "create";
       return render();
     }

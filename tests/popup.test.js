@@ -10,7 +10,7 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
   const toggle = { dataset: {}, textContent: "" };
   const root = { addEventListener: (event, handler) => handlers.set(event, handler) };
   const slot = { ...emptySlot(), tabId: 11, title: "제품 공개", host: "example.com", role: "standby", profileId: "auto",
-    alertSetup: { status: "ready", source: "title", profile: { name: "판매 알림", summaryFocus: "가격", rules: [{ text: "가격이 공개되면", enabled: true }] } } };
+    alertSetup: { status: "ready", source: "title", profile: { name: "판매 알림", summaryFocus: "가격", keywordExamples: ["가격", "한타"], rules: [{ text: "가격이 공개되면", enabled: true }] } } };
   const state = { slots: [slot, emptySlot()], profiles: [{ id: "lol", name: "롤" }, { id: "custom-game", name: "내 경기" }], settings: DEFAULT_SETTINGS, view: { tabId: 11 }, status: "", available: [{ id: 11, title: "제품 공개" }, { id: 12, title: "다른 탭" }], manual: null, peek: null };
   let subscriber;
   const documentBefore = globalThis.document, chromeBefore = globalThis.chrome;
@@ -61,6 +61,10 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert(!main.innerHTML.includes("← 돌아가기"));
     assert(!main.innerHTML.includes('data-alert-field="summaryFocus"'));
     assert(main.innerHTML.includes('data-alert-field="keywords"'));
+    assert(main.innerHTML.includes('placeholder="예: 가격"'));
+    assert(main.innerHTML.includes('키워드 설정'));
+    assert(!main.innerHTML.includes('바로 알림 키워드'));
+    assert(main.innerHTML.includes('키워드는 직접 입력하고 쉼표 로 구분하세요. 자주 나오는 단어는 알림이 많아질 수 있어요.'));
     handlers.get("input")({ target: { dataset: { alertField: "condition" }, value: "판매가 시작되면" } });
     handlers.get("input")({ target: { dataset: { alertField: "keywords" }, value: "판매 시작, 오픈" } });
     subscriber({ to: "ui", state: structuredClone(state) });

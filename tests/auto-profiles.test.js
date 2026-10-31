@@ -287,3 +287,10 @@ test("regenerating AI conditions preserves manually entered keywords", async () 
   await f.controller.generate(0, {request:"조건만 다시 만들어줘"});
   assert.deepEqual(alertProfileFor(f.slots[0]).keywords, ["휴강"]);
 });
+
+test("AI examples are relevant placeholders and never become active keywords", async () => {
+  const f = fixture(async () => ({...profile(), rules:[{text:"휴강이 발표되면",enabled:true}], keywordExamples:["휴강", "바론"]}));
+  await f.controller.generate(0);
+  assert.deepEqual(f.slots[0].alertSetup.profile.keywordExamples, ["휴강"]);
+  assert.deepEqual(alertProfileFor(f.slots[0]).keywords, []);
+});

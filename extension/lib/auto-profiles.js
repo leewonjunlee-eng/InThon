@@ -6,6 +6,13 @@ export function directKeywords(profile = {}) {
   return [...new Set(source.filter(word => typeof word === "string").map(word => word.trim().slice(0, 100)).filter(Boolean))].slice(0, 30);
 }
 
+export function keywordExamples(profile, condition) {
+  const compact = value => value.replace(/\s+/g, "").toLowerCase();
+  const examples = Array.isArray(profile.keywordExamples) ? profile.keywordExamples : [];
+  return [...new Set(examples.filter(word => typeof word === "string").map(word => word.trim())
+    .filter(word => word.length >= 2 && word.length <= 20 && compact(condition).includes(compact(word))))].slice(0, 3);
+}
+
 // Shared by the extension and the audio preview. Tab text is data, never instructions.
 export function cleanAlertProfile(value) {
   const text = (value, max) => typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -14,7 +21,7 @@ export function cleanAlertProfile(value) {
   })).filter(rule => rule.text);
   if (!rules.length) throw new Error("알림 조건을 하나 이상 입력해 주세요.");
   const keywords = directKeywords(value ?? {});
-  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: rules.map(rule => rule.text).join("\n").slice(0, 300), rules, keywords, keywordMode: "direct", watchPhrases: [] };
+  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: rules.map(rule => rule.text).join("\n").slice(0, 300), rules, keywordExamples: keywordExamples(value, rules.map(rule => rule.text).join(" ")), keywords, keywordMode: "direct", watchPhrases: [] };
 }
 
 export function alertProfileFor(slot) {

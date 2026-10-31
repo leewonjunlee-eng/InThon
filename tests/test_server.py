@@ -59,3 +59,12 @@ class SuggestProfileTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class KeywordExampleTests(unittest.TestCase):
+    def test_examples_are_condition_related_and_do_not_activate_alerts(self):
+        answer = {"condition": "휴강이 발표되면", "rules": [{"text": "휴강이 발표되면"}],
+                  "keywordExamples": ["휴강", "바론", "휴강", "발표"], "keywords": ["자동 등록 금지"]}
+        with patch.object(server, "ask_json", return_value=answer):
+            for result in (server.profile({"request": "강의"}), server.suggest_profile({"title": "강의"})):
+                self.assertEqual(result["keywordExamples"], ["휴강", "발표"])
+                self.assertEqual(result["keywords"], [])
