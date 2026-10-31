@@ -22,7 +22,8 @@ if (!globalThis.audioFocusLoaded) {
     button:disabled { opacity: .5; }
     .compact { box-sizing: border-box; width: min(360px, calc(100vw - 24px)); padding: 10px 14px; display: block; }
     .compact .head { align-items: center; gap: 6px; margin-bottom: 3px; }
-    .brand { color: #242432; font-size: 13px; font-weight: 650; letter-spacing: -.3px; }
+    .brand { display: inline-flex; align-items: center; gap: 5px; color: #242432; font-size: 13px; font-weight: 650; letter-spacing: -.3px; }
+    .brand img { width: 24px; height: 24px; object-fit: contain; }
     .time { margin-left: auto; font-size: 11px; }
     .compact .close { border: 0; width: 28px; min-height: 28px; padding: 0; margin-right: -5px; font-size: 20px; line-height: 1; color: #737385; }
     .source { color: #6254d8; font-size: 11px; margin-bottom: 3px; }
@@ -87,7 +88,11 @@ if (!globalThis.audioFocusLoaded) {
       card.className = "card compact";
       const head = document.createElement("div");
       head.className = "head";
-      const brand = text("span", "CatchSound"); brand.className = "brand";
+      const brand = text("span", ""); brand.className = "brand";
+      const logo = document.createElement("img");
+      logo.src = chrome.runtime.getURL("icons/brand.png");
+      logo.alt = "";
+      brand.append(logo, text("span", "CatchSound"));
       const time = text("span", moment.time); time.className = "time";
       const dismiss = action("×", close); dismiss.className = "close";
       dismiss.setAttribute("aria-label", "알림 닫기");
