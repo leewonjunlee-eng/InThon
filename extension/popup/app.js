@@ -126,8 +126,6 @@ function renderEntrust() {
   html += `<label class="stack"><span>감지 민감도</span><select data-setting-select="sensitivity">${[["low", "낮음 (큰 순간만)"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
   html += `<label class="stack"><span>메인 음량 <output id="setting-focusVol">${settings.focusVol}%</output></span><input type="range" min="0" max="100" value="${settings.focusVol}" data-setting-range="focusVol" aria-label="메인 음량"></label>`;
   html += `<label class="stack"><span>대기 음량 <output id="setting-bgVol">${settings.bgVol}%</output></span><input type="range" min="0" max="100" value="${settings.bgVol}" data-setting-range="bgVol" aria-label="대기 음량"></label>`;
-  html += `<label class="stack"><span>판단 서버 주소</span><input type="url" value="${escapeHTML(settings.serverUrl)}" data-setting-text="serverUrl"></label>`;
-  html += `<label class="stack"><span>데모 토큰</span><input type="password" value="${escapeHTML(settings.token)}" data-setting-text="token"></label>`;
   return html + `<div class="notice">단축키: Alt+Shift+K 탭 연결, Alt+Shift+→ 다른 소리에 집중, Alt+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
 }
 
@@ -236,7 +234,6 @@ root.addEventListener("change", (event) => {
   if (dataset.setting) act("settings", { patch: { [dataset.setting]: checked } });
   if (dataset.settingSelect) act("settings", { patch: { [dataset.settingSelect]: value } });
   if (dataset.settingRange) act("settings", { patch: { [dataset.settingRange]: Number(value) } });
-  if (dataset.settingText) act("settings", { patch: { [dataset.settingText]: value.trim() } });
   if (dataset.profile !== undefined) act("set-profile", { index: Number(dataset.profile), profileId: value });
   if (dataset.topic !== undefined) act("set-topic", { host: dataset.topic, topic: value || null });
 });
