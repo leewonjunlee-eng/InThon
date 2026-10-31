@@ -12,6 +12,8 @@ import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor,
 const STANDBY_DELAY_MS = 2000;
 const NAV_SETTLE_MS = 2500; // SPA는 주소가 먼저 바뀌고 제목과 본문이 뒤따른다.
 const NOTIFICATION_PREFIX = "moment:";
+const ALERT_LIFETIME_MS = 15000;
+const alertTimers = new Map();
 const WORK_TOPICS = ["과제", "기타"];
 
 const initialState = () => ({
@@ -21,6 +23,7 @@ const initialState = () => ({
   snapshot: null,
   view: { tabId: null, title: "", host: "", topic: null, focused: true },
   moments: [],
+  closedAlertIds: [],
   returnSummary: null,
   transcript: [],
   status: "",
@@ -102,6 +105,9 @@ async function restoreState() {
     }
   }
   state = restored;
+  await Promise.all(state.moments.filter(moment => moment.expiresAt && moment.expiresAt <= Date.now()).map(moment => clearAlerts(moment.id)));
+  state.moments = state.moments.filter(moment => !moment.expiresAt || moment.expiresAt > Date.now());
+  state.moments.filter(moment => moment.expiresAt).forEach(scheduleAlertExpiry);
   return state;
 }
 
@@ -312,15 +318,39 @@ async function clearAlerts(id = null) {
   await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, { to: "content", cmd: "moment-clear", id }).catch(() => {})));
 }
 
+function scheduleAlertExpiry(moment) {
+  clearTimeout(alertTimers.get(moment.id));
+  const timer = setTimeout(() => dismissMoment(moment.id).catch(() => {}), Math.max(0, moment.expiresAt - Date.now()));
+  timer.unref?.();
+  alertTimers.set(moment.id, timer);
+}
+async function dismissMoment(id) {
+  state.closedAlertIds = [id, ...state.closedAlertIds.filter(item => item !== id)].slice(0, 250);
+  state.moments = state.moments.filter(moment => moment.id !== id);
+  clearTimeout(alertTimers.get(id));
+  alertTimers.delete(id);
+  await queueAlert(() => clearAlerts(id));
+  await commit();
+}
+async function moveOpenAlerts() {
+  await queueAlert(async () => {
+    const open = state.moments.filter(moment => moment.expiresAt);
+    for (const moment of open) {
+      await clearAlerts(moment.id);
+      // displayMoment rechecks dismissal, deadline, and the current destination.
+      await displayMoment(moment, false);
+    }
+  });
+}
+
 function alertMoment(moment) {
   return queueAlert(() => displayMoment(moment));
 }
 
-async function displayMoment(moment) {
+async function displayMoment(moment, chime = true) {
   const index = slotIndex(moment.tabId);
-  if (index === -1 || state.settings.dnd || !state.moments.some(item => item.id === moment.id)) return;
-  const pan = state.slots[index].pan;
-  toEngine("chime", { pan }).catch(() => {});
+  if (state.settings.dnd || moment.expiresAt <= Date.now() || !state.moments.some(item => item.id === moment.id && item.expiresAt > Date.now())) return;
+  if (chime && index !== -1) toEngine("chime", { pan: state.slots[index].pan }).catch(() => {});
   // Resolve the destination at delivery time, not from delayed focus-change state.
   // The listening tab may belong to an entirely different Chrome window.
   const window = await chrome.windows.getLastFocused().catch(() => null);
@@ -361,12 +391,21 @@ async function showCard(tabId, moment, index) {
 
 async function onEngineEvent(event) {
   if (event.type === "moment") {
-    state.moments = [event.moment, ...state.moments].slice(0, 30);
-    await alertMoment(event.moment);
+    if (state.closedAlertIds.includes(event.moment.id)) return;
+    const existing = state.moments.find(moment => moment.id === event.moment.id);
+    const moment = { ...event.moment, expiresAt: existing?.expiresAt ?? (state.settings.dnd ? null : Date.now() + ALERT_LIFETIME_MS) };
+    state.moments = [moment, ...state.moments.filter(item => item.id !== moment.id)].slice(0, 30);
+    if (moment.expiresAt) {
+      scheduleAlertExpiry(moment);
+      await commit(); // Persist the original deadline before displaying on a page.
+      await alertMoment(moment);
+    }
   } else if (event.type === "moment-update") {
     const index = state.moments.findIndex(item => item.id === event.moment.id);
     if (index < 0) return;
-    state.moments[index] = event.moment;
+    const expiresAt = state.moments[index].expiresAt;
+    if (expiresAt && expiresAt <= Date.now()) return;
+    state.moments[index] = { ...event.moment, expiresAt };
     // Update existing cards only: dismissed or replaced alerts must not reappear.
     const tabs = await chrome.tabs.query({});
     await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, {
@@ -461,10 +500,7 @@ const commands = {
   guide: () => {
     state.seenGuide = true;
   },
-  dismiss: async ({ id }) => {
-    state.moments = state.moments.filter((moment) => moment.id !== id);
-    await queueAlert(() => clearAlerts(id));
-  },
+  dismiss: ({ id }) => dismissMoment(id),
   "clear-return": () => {
     state.returnSummary = null;
   },
@@ -563,9 +599,13 @@ async function onViewChanged() {
   await load();
   await refreshView();
   await applyRoles();
+  await moveOpenAlerts();
 }
 
 chrome.tabs.onActivated.addListener(onViewChanged);
+chrome.tabs.onUpdated.addListener((tabId, change) => {
+  if (change.status === "complete" && state?.view.tabId === tabId) void onViewChanged().catch(() => {});
+});
 const navigationTimers = new Map();
 
 function slotNavigated(tabId, url) {
@@ -640,5 +680,11 @@ chrome.notifications.onButtonClicked.addListener(async (id, button) => {
     try { await run("focus", { index }); }
     catch (error) { state.status = error.message; await commit(); return; }
   }
-  await chrome.notifications.clear(id);
+  if (moment) await dismissMoment(moment.id);
+  else await chrome.notifications.clear(id);
+});
+chrome.notifications.onClosed?.addListener(async (id, byUser) => {
+  if (!byUser || !id.startsWith(NOTIFICATION_PREFIX)) return;
+  await load();
+  await dismissMoment(id.slice(NOTIFICATION_PREFIX.length));
 });

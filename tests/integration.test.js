@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // Exercise the real background message boundary with Chrome APIs replaced by fakes.
 test('frontend selection connects only its active tab and preserves audio controls', async () => {
-  let handler, latest, shortcut, notificationClick, tabRemoved, tabActivated;
+  let handler, latest, shortcut, notificationClick, notificationClosed, tabRemoved, tabActivated;
   let activeId = 11;
   let windowFocused = true;
   let focusedWindowId = 1;
@@ -48,7 +48,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
     scripting: { executeScript: async ({ target }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
     commands: { onCommand: { addListener(fn) { shortcut = fn; } } },
-    notifications: { onButtonClicked: { addListener(fn) { notificationClick = fn; } },
+    notifications: { onClosed: { addListener(fn) { notificationClosed = fn; } }, onButtonClicked: { addListener(fn) { notificationClick = fn; } },
       getAll: async () => Object.fromEntries(notifications),
       create: async (id, value) => { notifications.set(id, value); return id; },
       clear: async id => notifications.delete(id),
@@ -146,11 +146,30 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment-update', moment: { ...moment, summary: '완료된 요약', summaryStatus: 'ai' } });
     assert.equal(latest.moments[0].summaryStatus, 'ai');
     assert.equal(contentMessages.at(-1).cmd, 'moment-update');
+    const deadline = latest.moments.find(item => item.id === moment.id).expiresAt;
+    const chimes = engineCommands.filter(item => item.cmd === 'chime').length;
+    tabs.push({ id: 14, windowId: 1, title: '연결하지 않은 작업 탭', url: 'https://work.example/' });
+    activeId = 14;
+    await tabActivated();
+    assert.equal(contentMessages.at(-1).id, 14);
+    assert.equal(contentMessages.at(-1).cmd, 'moment');
+    assert.equal(contentMessages.at(-1).moment.summary, '완료된 요약');
+    assert.equal(contentMessages.at(-1).moment.expiresAt, deadline);
+    assert.equal(engineCommands.filter(item => item.cmd === 'chime').length, chimes, 'moving an alert is silent');
+    activeId = 11;
+    await tabActivated();
+    tabs.pop();
+
     await send('dismiss', { id: moment.id });
     assert.equal(contentMessages.at(-1).cmd, 'moment-clear', 'dismiss closes the page card as well as history');
     const beforeDismissedUpdate = contentMessages.length;
     await emit({ type: 'moment-update', moment });
     assert.equal(contentMessages.length, beforeDismissedUpdate);
+    await tabActivated();
+    assert.equal(contentMessages.length, beforeDismissedUpdate, 'a dismissed alert never follows later tab visits');
+    await emit({ type: 'moment', moment });
+    assert.equal(contentMessages.length, beforeDismissedUpdate, 'a duplicate event cannot resurrect a dismissed alert');
+
     await send('settings', { patch: { dnd: true } });
     await emit({ type: 'moment', moment: { ...moment, id: 'quiet-event' } });
     assert.equal(contentMessages.length, beforeDismissedUpdate, 'DND stores events without showing cards');
@@ -161,6 +180,10 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(notifications.get('moment:system-1').requireInteraction, true);
     await emit({ type: 'moment', moment: { ...moment, id: 'system-2' } });
     assert.equal(notifications.size, 2, 'a new system alert joins the one still open');
+    await emit({ type: 'moment', moment: { ...moment, id: 'closed-system' } });
+    await notificationClosed('moment:closed-system', true);
+    assert(!latest.moments.some(item => item.id === 'closed-system'));
+
     windowFocused = true;
     focusedWindowId = 2;
     activeId = 13;

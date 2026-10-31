@@ -12,14 +12,18 @@ class Element {
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(item => item !== this); }
 }
 const walk = node => [node, ...node.children.flatMap(walk), ...(node.shadowRoot ? walk(node.shadowRoot) : [])];
-test('alert stays until a button, stacks new events, and ignores late updates', async () => {
+test('alerts expire, stack, report dismissal, and preserve the original deadline', async () => {
   const root = new Element('root');
   let listener;
   const sent = [];
+  let now = 1000, timerId = 0;
+  const timers = new Map();
   const context = vm.createContext({
     document: { documentElement: root, createElement: tag => new Element(tag), getElementById: id => walk(root).find(node => node.id === id) },
     chrome: { runtime: { getURL: path => `chrome-extension://test/${path}`, onMessage: { addListener(fn) { listener = fn; } }, sendMessage: async message => { sent.push(message); return { ok: true }; } } },
-    setTimeout: () => assert.fail('alert must not schedule auto-dismiss'),
+    Date: { now: () => now },
+    setTimeout: (fn, delay) => { timers.set(++timerId, { fn, delay }); return timerId; },
+    clearTimeout: id => timers.delete(id),
   });
   vm.runInContext(await readFile(new URL('../extension/content.js', import.meta.url), 'utf8'), context);
   const emit = (cmd, moment) => listener({ to: 'content', cmd, moment }, {}, () => {});
@@ -66,10 +70,10 @@ test('alert stays until a button, stacks new events, and ignores late updates', 
   assert.equal(root.children.length, 0, 'clearing without an id closes every card');
   listener({ to: 'content', cmd: 'focus-suggestion', tabId: 12, title: '대기 탭' }, {}, () => {});
   assert(walk(root).some(node => node.textContent === '이 탭에 집중할까요?'));
-  assert.equal(sent.length, 1, 'showing a suggestion does not change focus');
+  assert.equal(sent.filter(message => message.cmd === 'focus').length, 1, 'showing a suggestion does not change focus');
   walk(root).find(node => node.textContent === '유지하기').onclick();
   assert.equal(root.children.length, 0);
-  assert.equal(sent.length, 1);
+  assert.equal(sent.filter(message => message.cmd === 'focus').length, 1);
   listener({ to: 'content', cmd: 'focus-suggestion', tabId: 12 }, {}, () => {});
   await walk(root).find(node => node.textContent === '이 탭에 집중').onclick();
   assert.equal(sent.at(-1).cmd, 'accept-focus-suggestion');
@@ -77,5 +81,22 @@ test('alert stays until a button, stacks new events, and ignores late updates', 
   listener({ to: 'content', cmd: 'focus-suggestion', tabId: 12 }, {}, () => {});
   listener({ to: 'content', cmd: 'focus-suggestion-clear' }, {}, () => {});
   assert.equal(root.children.length, 0, 'leaving clears the suggestion');
+  assert(sent.some(message => message.cmd === 'dismiss' && message.id === first.id), 'manual closing is shared with the background');
+  now = 5000;
+  const expiring = { ...first, id: 'deadline', expiresAt: 11000 };
+  emit('moment', expiring);
+  assert.equal(timers.size, 1);
+  assert.equal([...timers.values()][0].delay, 6000, 'moved alerts use only the remaining lifetime');
+  const originalTimer = timerId;
+  emit('moment', expiring);
+  emit('moment-update', { ...expiring, summary: '늦은 요약' });
+  assert.equal(timerId, originalTimer, 'moving or updating never extends the deadline');
+  now = 11000;
+  await [...timers.values()][0].fn();
+  assert.equal(root.children.length, 0);
+  assert(sent.some(message => message.cmd === 'dismiss' && message.id === 'deadline'));
+  emit('moment', expiring);
+  assert.equal(root.children.length, 0, 'an expired re-delivery cannot reopen the card');
+
 
 });

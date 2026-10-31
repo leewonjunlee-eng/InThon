@@ -1,4 +1,4 @@
-// Persistent page alerts. New events stack below open cards; summary updates never reopen one.
+// Open alerts follow the active tab until dismissed or their original 15-second deadline.
 if (!globalThis.audioFocusLoaded) {
   globalThis.audioFocusLoaded = true;
   const openCards = new Map(); // key -> { host, summaryNode, fullSummaryNode, evidenceNode, statusNode }
@@ -40,6 +40,7 @@ if (!globalThis.audioFocusLoaded) {
   function closeCard(key) {
     const entry = openCards.get(key);
     if (!entry) return;
+    clearTimeout(entry.timer);
     openCards.delete(key);
     const stack = entry.host.parent ?? entry.host.parentNode;
     entry.host.remove();
@@ -96,7 +97,16 @@ if (!globalThis.audioFocusLoaded) {
     }[moment.summaryStatus] ?? "감지 내용";
   }
   function showMoment({ moment }) {
-    mount(moment.id, (card, close, entry) => {
+    const expiresAt = moment.expiresAt ?? Date.now() + 15000;
+    if (expiresAt <= Date.now()) return;
+    // Re-delivery to the same page must not reset the timer or expanded details.
+    if (openCards.has(moment.id)) { updateSummary(moment); return; }
+    mount(moment.id, (card, localClose, entry) => {
+      const close = () => {
+        localClose();
+        void chrome.runtime.sendMessage({ to: "bg", cmd: "dismiss", id: moment.id }).catch(() => {});
+      };
+      entry.timer = setTimeout(close, Math.max(0, expiresAt - Date.now()));
       card.className = "card compact";
       const head = document.createElement("div");
       head.className = "head";
@@ -136,7 +146,8 @@ if (!globalThis.audioFocusLoaded) {
     updateSummary(moment);
   }
   function showFocusSuggestion(message) {
-    mount("focus-suggestion", (card, close) => {
+    mount("focus-suggestion", (card, close, entry) => {
+      entry.timer = setTimeout(close, 15000);
       card.className = "card compact";
       const head = document.createElement("div"); head.className = "head";
       const brand = text("span", ""); brand.className = "brand";
