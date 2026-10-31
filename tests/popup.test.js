@@ -64,13 +64,18 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     const generate = sent.find(message => message.cmd === "generate-alerts");
     assert.equal(generate.tabId, 11);
     assert.equal(generate.request, request);
+    main.scrollTop = 180;
     await click('tab:entrust');
+    assert.equal(main.scrollTop, 0, 'new page starts at the shared title baseline');
+    main.scrollTop = 90;
+    subscriber({ to: 'ui', state: structuredClone(state) });
+    assert.equal(main.scrollTop, 90, 'background updates preserve the current scroll position');
     assert(main.innerHTML.includes('기본 설정'));
-    assert.equal(toggle.textContent, '메인');
+    assert.equal(toggle.textContent, '세부설정');
     await click('toggle-settings');
     assert.equal(toggle.textContent, '세부설정');
     await click('toggle-settings');
-    assert.equal(toggle.textContent, '메인');
+    assert.equal(toggle.textContent, '세부설정');
     assert(!main.innerHTML.includes('감지 민감도'));
     assert(main.innerHTML.includes('감지 · 알림'));
     assert(main.innerHTML.includes('aria-label="소리 구성으로 돌아가기"'));
@@ -78,6 +83,7 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert(!main.innerHTML.includes('메인 소리가 나면 대기 소리 줄이기'));
     assert(!main.innerHTML.includes('AI 서버 연결'));
     await click('settings-tab:presets');
+    assert.equal(main.scrollTop, 0, 'switching settings tabs resets the content position');
     assert(main.innerHTML.includes('내 프리셋'));
     await click('preset-new');
     assert(main.innerHTML.includes('AI로 초안 만들기'));
