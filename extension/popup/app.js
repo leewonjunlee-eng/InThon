@@ -3,7 +3,6 @@ const transport = await createTransport();
 if (transport.isExtension) document.documentElement.classList.add("extension-popup");
 let selections = await transport.getSelections();
 let picker = null;
-let pending = null;
 const root = document.getElementById("ab-mock");
 const main = document.getElementById("ab-content");
 let state = null;
@@ -44,10 +43,6 @@ async function act(cmd, payload) {
   return reply;
 }
 
-function renderGuide() {
-  return `<div class="notice"><h3>필요한 소리에 집중하고, 다시 돌아오세요.</h3><p>1. 소리가 나는 탭에서 이 창을 열고 연결합니다.</p><p>2. 맡기기에서 무엇을 대신 들을지 고릅니다.</p><p>3. 다른 일을 하면 소리는 줄고, 중요한 순간에 알려 드려요.</p>${button("시작하기", "guide", "solid full")}</div>`;
-}
-
 function renderEmptySlot(i) {
   const source = selections[i];
   if (!source) return `<p class="sub">이 자리에 들을 소리를 넣어주세요.</p>${button("＋ 연결할 탭 고르기", `pick:${i}`, "full")}`;
@@ -58,13 +53,13 @@ function renderEmptySlot(i) {
 function renderPicker() {
   const i = picker;
   const sources = state.available ?? state.audible;
-  let html = button("← 슬롯으로 돌아가기", "back", "quiet") + `<div class="row"><h3>${label(i)}에 연결할 소리 선택</h3><span class="letter">${label(i)}</span></div><p class="sub">탭을 선택한 뒤 아래 버튼으로 확정하세요.</p><div class="picker">`;
+  let html = button("← 슬롯으로 돌아가기", "back", "quiet") + `<div class="row"><h3>${label(i)}에 연결할 소리 선택</h3><span class="letter">${label(i)}</span></div><p class="sub">탭을 누르면 바로 슬롯에 선택됩니다.</p><div class="picker">`;
   for (const source of sources) {
     const used = state.slots[1-i].tabId === source.id || selections[1-i]?.id === source.id;
-    html += button(`<span>${escapeHTML(source.title)}<span class="sub">${escapeHTML(source.host)}${source.audible ? " · 재생 중" : ""}</span></span><span class="sub">${used ? "다른 슬롯에서 사용 중" : pending === source.id ? "선택됨" : "선택"}</span>`, `select:${source.id}`, "choice", used, `aria-pressed="${pending === source.id}"`);
+    html += button(`<span>${escapeHTML(source.title)}<span class="sub">${escapeHTML(source.host)}${source.audible ? " · 재생 중" : ""}</span></span>${used ? '<span class="sub">다른 슬롯에서 사용 중</span>' : ""}`, `select:${source.id}`, "choice", used);
   }
   if (!sources.length) html += '<p class="sub">연결할 웹 탭이 없습니다. 먼저 동영상이나 음악 탭을 열어주세요.</p>';
-  return html + `</div>${button(`${label(i)} 슬롯에 선택하기`, "confirm", "solid full", pending === null)}<div class="notice">선택만으로 소리가 연결되지는 않아요. Chrome에서는 선택한 탭에서 확장 아이콘을 눌러 연결합니다.</div>`;
+  return html + `</div><div class="notice">선택만으로 소리가 연결되지는 않아요. Chrome에서는 선택한 탭에서 확장 아이콘을 눌러 연결합니다.</div>`;
 }
 
 function renderSlot(slot, i) {
@@ -77,8 +72,7 @@ function renderSlot(slot, i) {
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
   html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 볼륨</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 볼륨"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
-  html += `<div class="two">${button(focused ? "집중 중" : "여기에 집중", `focus:${i}`, focused ? "solid" : "", focused)}${button(slot.muted ? "소리 켜기" : "듣기 음소거", `mute:${i}`, "", false, `aria-pressed="${slot.muted}"`)}</div>`;
-  html += `<div class="two">${button(slot.pinned ? "고정 해제" : "메인 고정", `pin:${i}`, "", false, `aria-pressed="${slot.pinned}"`)}${button("잠깐 확인", `peek:${i}`, "", state.peek !== null || main)}</div>`;
+  html += button(focused ? "집중 중" : "여기에 집중", `focus:${i}`, focused ? "solid full" : "full", focused);
   html += `<div class="row">${button("탭으로 이동 ↗", `goto:${slot.tabId}`, "quiet")}${button("소형 플레이어", `pip:${i}`, "quiet")}${button("연결 해제", `stop:${i}`, "quiet")}</div>`;
   return html + "</article>";
 }
@@ -88,7 +82,7 @@ function renderView() {
   const where = !view.focused ? "크롬 밖에서 작업 중" : `${escapeHTML(view.title).slice(0, 26)}`;
   const topics = [...new Set([...state.profiles.map((item) => item.name), "과제", "기타"])];
   const options = topics.map((topic) => `<option ${view.topic === topic ? "selected" : ""}>${escapeHTML(topic)}</option>`).join("");
-  return `<div class="source"><span class="sub">지금 보는 화면</span><strong>${where}</strong>${view.focused && view.host ? `<label class="sub">이 사이트의 주제 <select data-topic="${escapeHTML(view.host)}"><option value="">자동</option>${options}</select></label>` : ""}</div>`;
+  return `<div class="source"><div class="view-heading"><span class="sub">지금 보는 화면</span>${button("세부 설정 (맡기기)", "tab:entrust", "quiet settings-link")}</div><strong>${where}</strong>${view.focused && view.host ? `<label class="sub">이 사이트의 주제 <select data-topic="${escapeHTML(view.host)}"><option value="">자동</option>${options}</select></label>` : ""}</div>`;
 }
 
 function renderSound() {
@@ -120,12 +114,13 @@ function renderProfileSelect(slot, i) {
 
 function renderEntrust() {
   const connected = state.slots.map((slot, i) => (slot.tabId !== null ? renderProfileSelect(slot, i) : "")).join("");
-  let html = `<h3>무엇을 맡길까요?</h3><p class="sub">대기 중인 탭만 대신 듣습니다. 음성은 저장하지 않고, 자막은 탭을 닫으면 지워집니다.</p>`;
-  html += connected || `<div class="notice">먼저 소리 탭에서 연결해 주세요.</div>`;
+  let html = button("← 소리로 돌아가기", "tab:sound", "quiet") + `<h3>세부 설정 (맡기기)</h3><h3>무엇을 맡길까요?</h3><p class="sub">대기 중인 탭만 대신 듣습니다. 음성은 저장하지 않고, 자막은 탭을 닫으면 지워집니다.</p>`;
+  html += connected || `<div class="notice">먼저 소리 화면에서 연결해 주세요.</div>`;
   html += `<label class="stack"><span>조건을 한 줄로 적기</span><input type="text" id="request" maxlength="200" placeholder="두산 득점하면 알려줘"></label>${button(busy ? "만드는 중…" : "프로필 만들기", "draft", "full", busy)}`;
   if (draft) {
     html += `<div class="notice"><h3>${escapeHTML(draft.name)}</h3><p>조건: ${escapeHTML(draft.condition)}</p><p>단어: ${escapeHTML(draft.keywords.join(", "))}</p><p>요약 초점: ${escapeHTML(draft.summaryFocus)}</p><div class="two">${button("저장", "save-draft", "solid")}${button("취소", "drop-draft")}</div></div>`;
   }
+  html += renderProfiles();
   const { settings } = state;
   html += `<h3>설정</h3><div class="stack">${toggle("auto", "보는 화면에 따라 자동 전환")}${toggle("bgMute", "대기 중에는 음소거")}${toggle("dnd", "방해 금지 (알림 없이 모아 두기)")}${toggle("duck", "메인 소리가 날 때 대기 소리 더 낮추기")}${toggle("screen", "화면 변화도 감지 (이미지가 서버로 전송됨)")}</div>`;
   html += `<label class="stack"><span>감지 민감도</span><select data-setting-select="sensitivity">${[["low", "낮음 (큰 순간만)"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
@@ -136,28 +131,18 @@ function renderEntrust() {
   return html + `<div class="notice">단축키: Alt+Shift+K 탭 연결, Alt+Shift+→ 다른 소리에 집중, Alt+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
 }
 
-function renderMoment(moment) {
-  const slot = state.slots.findIndex((item) => item.tabId === moment.tabId);
-  return `<article class="slot"><div class="row"><h3>${moment.keyword ? `"${escapeHTML(moment.keyword)}"` : moment.confident ? "중요한 순간" : "큰 순간일 수 있음"}</h3><span class="sub">${escapeHTML(moment.topic)} · ${moment.time}</span></div><p>${escapeHTML(moment.summary)}</p>${moment.evidence.length ? `<div class="source"><span class="sub">${moment.evidence.map(escapeHTML).join("<br>")}</span></div>` : ""}<div class="two">${button("잠깐 듣기", `peek:${slot}`, "", slot < 0)}${button("지우기", `dismiss:${moment.id}`)}</div></article>`;
-}
-
-function renderMoments() {
-  let html = `<h3>놓친 순간</h3>`;
-  if (state.returnSummary) html += renderReturn();
-  html += state.moments.length ? state.moments.map(renderMoment).join("") : `<div class="notice">아직 감지한 순간이 없어요. 대기 중인 탭을 대신 듣고 있으면 여기에 쌓입니다.</div>`;
-  if (state.transcript.length) {
-    html += `<h3>최근 자막</h3><div class="source"><span class="sub">${state.transcript.slice(-8).map((line) => `${line.time} ${escapeHTML(line.text)}`).join("<br>")}</span></div>`;
-  }
-  return html;
+function renderProfiles() {
+  const list = values => values?.length ? values.map(escapeHTML).join(", ") : "없음";
+  return `<section class="profile-list" aria-label="프로필 내용"><h3>프로필 내용</h3><p class="sub">이름을 누르면 감지 조건과 키워드를 확인할 수 있어요.</p>${state.profiles.map(profile => `<details class="profile-detail" data-profile-detail="${escapeHTML(profile.id)}"><summary>${escapeHTML(profile.name)}</summary><dl><dt>감지 조건</dt><dd>${escapeHTML(profile.condition)}</dd><dt>감지 키워드</dt><dd>${list(profile.keywords)}</dd><dt>요약 초점</dt><dd>${escapeHTML(profile.summaryFocus)}</dd><dt>관련 사이트</dt><dd>${list(profile.relatedSites)}</dd><dt>관련 단어</dt><dd>${list(profile.relatedWords)}</dd></dl></details>`).join("")}</section>`;
 }
 
 function render() {
   if (!state) return;
-  const tabs = [["sound", "소리"], ["entrust", "맡기기"], ["moments", `순간 ${state.moments.length || ""}`]];
-  let html = `<div class="segments" role="tablist">${tabs.map(([id, text]) => button(text, `tab:${id}`, "", false, `aria-pressed="${tab === id}"`)).join("")}</div>`;
-  html += picker !== null ? renderPicker() : { sound: renderSound, entrust: renderEntrust, moments: renderMoments }[tab]();
+  const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
+  let html = picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
   const message = notice || state.status;
   main.innerHTML = html + `<p id="notice" class="status" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
+  main.querySelectorAll("details[data-profile-detail]").forEach(item => { item.open = openProfiles.has(item.dataset.profileDetail); });
 }
 
 async function dispatch(action) {
@@ -171,19 +156,18 @@ async function dispatch(action) {
       return render();
     case "pick":
       picker = i;
-      pending = selections[i]?.id ?? null;
       return render();
     case "back":
       picker = null;
       return render();
-    case "select":
-      pending = Number(arg);
-      return render();
-    case "confirm": {
-      const source = (state.available ?? state.audible).find(item => item.id === pending);
+    case "select": {
+      if (picker === null) return;
+      const source = (state.available ?? state.audible).find(item => item.id === i);
       if (!source || state.slots[1-picker].tabId === source.id || selections[1-picker]?.id === source.id) return;
-      selections[picker] = source;
-      await transport.saveSelections(selections);
+      const next = [...selections];
+      next[picker] = source;
+      await transport.saveSelections(next);
+      selections = next;
       picker = null;
       return render();
     }
@@ -200,9 +184,6 @@ async function dispatch(action) {
     case "stop":
       return act("disconnect", { index: i });
     case "focus":
-    case "peek":
-    case "mute":
-    case "pin":
       return act(name, { index: i });
     case "pip":
       return act("pip", { index: i });
@@ -210,8 +191,6 @@ async function dispatch(action) {
       return act("pan", { index: i, value: Number(extra) });
     case "goto":
       return act("goto", { tabId: i });
-    case "dismiss":
-      return act("dismiss", { id: action.slice("dismiss:".length) });
     case "draft": {
       const request = document.getElementById("request").value.trim();
       if (!request) return;
