@@ -3,8 +3,10 @@ const KEY = 'catchsound-tutorial-v2';
 const force = new URLSearchParams(location.search).get('tutorial') === '1';
 let seen = false;
 try { seen = localStorage.getItem(KEY) === 'done'; } catch {}
+document.getElementById('tutorial-launcher')?.addEventListener('click', () => startTutorial(true));
 if (!seen || force) startTutorial();
-function startTutorial() {
+function startTutorial(manual=false) {
+  if (document.querySelector('#ab-mock .onboarding')) return;
   document.documentElement.classList.add('tutorial-active');
   let welcome=true, added=false, secondSelected=null, pickerTarget=0;
   let switched=false;
@@ -60,7 +62,7 @@ function startTutorial() {
     dialog.innerHTML=`${header}<div class="tour-progress" role="progressbar" aria-label="튜토리얼 진행 단계" aria-valuemin="0" aria-valuemax="4" aria-valuenow="${step+1}">${[0,1,2,3].map(i=>`<span class="${i<=step?'filled':''}"></span>`).join('')}</div><div class="tour-heading"><span class="sub">시작하기 · ${step+1}/4</span>${button('건너뛰기','skip','quiet')}</div><div class="tour-title-row"><h3 id="onboarding-title">${step===2&&detail?'프리셋을 직접 수정해보세요':titles[step]}</h3>${step===3 ? `<input type="checkbox" class="setting-switch" data-tour-dnd aria-label="연습용 방해 금지" ${dnd?'checked':''}>` : ''}</div><p class="sub tour-description">${step===2&&detail?'원하는 조건으로 바꾸고 저장하면 이 탭에 적용돼요.':descriptions[step]}</p><div class="tour-content">${content}</div><div class="tour-footer">${step===2&&detail ? button('취소','cancel-preset')+button('저장하고 적용','save-preset','solid') : (step?button('이전','back'):'')+button(step===3?'시작하기':'다음','next','solid')}</div>`;
     if(focus) dialog.querySelector('[data-tour="next"]').focus({preventScroll:true});
   }
-  function close(){document.documentElement.classList.remove('tutorial-active');try{localStorage.setItem(KEY,'done');}catch{} document.removeEventListener('keydown',onKey,true);dialog.close();dialog.remove();if(force){const url=new URL(location.href);url.searchParams.delete('tutorial');history.replaceState(null,'',url);}document.getElementById('settings-toggle')?.focus();}
+  function close(){document.documentElement.classList.remove('tutorial-active');try{localStorage.setItem(KEY,'done');}catch{} document.removeEventListener('keydown',onKey,true);dialog.close();dialog.remove();if(force){const url=new URL(location.href);url.searchParams.delete('tutorial');history.replaceState(null,'',url);}document.getElementById(manual ? 'tutorial-launcher' : 'settings-toggle')?.focus();}
   function onKey(event){
     if(welcome || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || event.repeat) return;
     if(step===0 && event.code==='KeyK') {
