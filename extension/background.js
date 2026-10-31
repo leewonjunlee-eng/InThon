@@ -113,9 +113,8 @@ async function restoreState() {
 }
 
 let inboxSignature = "";
-const inboxState = () => ({ enabled: state.settings.dnd, items: state.dndInbox });
-async function syncInbox(force = false) {
-  const inbox = inboxState();
+const inboxState = () => ({ enabled: state.settings.dnd, items: state.dndInbox, countReady: true });
+async function syncInbox(force = false, inbox = inboxState()) {
   const signature = JSON.stringify(inbox);
   if (!force && signature === inboxSignature) return;
   inboxSignature = signature;
@@ -124,7 +123,7 @@ async function syncInbox(force = false) {
     const message = { to: "content", cmd: "dnd-inbox", inbox };
     try { await chrome.tabs.sendMessage(tab.id, message); }
     catch {
-      if (!inbox.enabled || tab.id !== state.view.tabId) return;
+      if (!inbox.enabled || (!tab.active && tab.id !== state.view.tabId)) return;
       try {
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inbox.js", "content.js"] });
         await chrome.tabs.sendMessage(tab.id, message);
@@ -604,6 +603,13 @@ const commands = {
 async function run(cmd, payload) {
   await load();
   const result = await commands[cmd](payload);
+  // DND is a notification preference: never wait for classification or audio setup.
+  if (cmd === "settings" && Object.keys(payload.patch ?? {}).length === 1 && "dnd" in payload.patch) {
+    focusSuggestion.update();
+    await syncInbox(true, { enabled: state.settings.dnd, countReady: false });
+    await commit(); // Publish the confirmed local inbox count after the bell is visible.
+    return result;
+  }
   await refreshView();
   await applyRoles({ immediate: cmd !== "state" }); // 사용자가 직접 바꾼 건 기다리지 않는다.
   if (cmd === "connect" && payload.reopenPopup) await reopenPopupAfterConnect(chrome, result);

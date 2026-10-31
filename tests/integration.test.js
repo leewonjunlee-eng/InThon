@@ -171,7 +171,20 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment', moment });
     assert.equal(contentMessages.length, beforeDismissedUpdate, 'a duplicate event cannot resurrect a dismissed alert');
 
-    await send('settings', { patch: { dnd: true } });
+    const outputsBeforeDnd = engineCommands.length;
+    const fetchBeforeDnd = globalThis.fetch;
+    let dndServerCalls = 0;
+    globalThis.fetch = () => { dndServerCalls++; throw new Error('DND must not contact the server'); };
+    const beforeInboxToggle = inboxMessages.length;
+    try {
+      assert.equal((await send('settings', { patch: { dnd: true } })).ok, true);
+      assert.equal(engineCommands.length, outputsBeforeDnd, 'DND skips all audio engine work');
+      assert.equal(dndServerCalls, 0, 'DND never contacts the server');
+      const updates = inboxMessages.slice(beforeInboxToggle);
+      assert.equal(updates[0].inbox.enabled, true);
+      assert.equal(updates[0].inbox.countReady, false, 'show the bell without an unconfirmed count');
+      assert.equal(updates.at(-1).inbox.countReady, true);
+    } finally { globalThis.fetch = fetchBeforeDnd; }
     await emit({ type: 'moment', moment: { ...moment, id: 'quiet-event' } });
     assert.equal(contentMessages.length, beforeDismissedUpdate, 'DND stores events without showing cards');
     assert.equal(latest.moments[0].id, 'quiet-event');

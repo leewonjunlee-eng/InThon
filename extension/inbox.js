@@ -100,13 +100,15 @@ if (!globalThis.catchSoundInboxLoaded) {
   function update(data) {
     if (!data?.enabled) { host?.remove(); host=null; expanded=false; return; }
     if (!host) mount();
+    const countReady = data.countReady !== false && Array.isArray(data.items);
     items = data.items ?? [];
     const scrollTop=list.scrollTop;
+    badge.hidden = !countReady;
     badge.textContent = items.length > 99 ? '99+' : String(items.length);
-    heading.textContent = `모아둔 알림 ${items.length}`;
-    trigger.setAttribute('aria-label',`방해 금지 알림 ${items.length}개 보기`);
+    heading.textContent = countReady ? `모아둔 알림 ${items.length}` : '모아둔 알림';
+    trigger.setAttribute('aria-label',countReady ? `방해 금지 알림 ${items.length}개 보기` : '방해 금지 알림 보기');
     list.replaceChildren();
-    if (!items.length) list.append(element('p','아직 쌓인 알림이 없어요.','empty'));
+    if (!items.length) list.append(element('p',countReady ? '아직 쌓인 알림이 없어요.' : '알림을 확인하고 있어요.','empty'));
     for(const item of items){
       const article=element('article','','item'), meta=element('div','','meta');
       const brand=element('span','','brand'), logo=element('img');
