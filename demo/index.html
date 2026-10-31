@@ -1,34 +1,26 @@
 <!doctype html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>catchsound · A/B 오디오</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script defer src="app.js"></script>
-  </head>
-  <body>
-    <div id="ab-mock">
-      <div class="wrap">
-        <section class="app" aria-label="오디오 조절">
-          <header>
-            <div>
-              <h2>catchsound</h2>
-              <p class="sub">소리의 자리를 먼저 골라주세요</p>
-            </div>
-            <span class="badge">A / B</span>
-          </header>
-          <main id="ab-content"></main>
-          <footer>
-            A·B는 소리를 구분하는 슬롯입니다. 귀 방향과는 별개예요.<br />듣기
-            음소거는 내 마이크를 끄지 않습니다.
-          </footer>
-        </section>
-        <p class="caption">
-          프론트엔드 데모 · 실제 탭·오디오에는 영향을 주지 않습니다.
-        </p>
-        <noscript>이 데모를 사용하려면 JavaScript를 켜주세요.</noscript>
-      </div>
-    </div>
-  </body>
+<meta charset="utf-8">
+<title>Catch Sound 웹 체험</title>
+<link rel="stylesheet" href="/demo/trial.css">
+<main>
+  <h1>Catch Sound 웹 체험</h1>
+  <p>설치 없이 확장과 같은 엔진을 시험합니다. 두 소리를 켜고, 지금 하는 일을 바꿔 보세요.</p>
+  <button id="start">두 소리 시작</button>
+  <fieldset id="work" disabled>
+    <legend>지금 보는 화면</legend>
+    <label><input type="radio" name="view" value="lol" checked> 롤 전적 검색 (주제 롤)</label>
+    <label><input type="radio" name="view" value="lecture"> 강의 자료 (주제 강의)</label>
+    <label><input type="radio" name="view" value="work"> 과제 문서 (주제 과제)</label>
+  </fieldset>
+  <section class="slots">
+    <article><h2>소리 A · LCK 모의 중계</h2><p id="role-a">-</p><audio id="a" src="/demo/sample/lol.wav" loop></audio></article>
+    <article><h2>소리 B · 운영체제 강의</h2><p id="role-b">-</p><audio id="b" src="/demo/sample/lecture.wav" loop></audio></article>
+  </section>
+  <h2>놓친 순간</h2>
+  <div id="moments"><p>대기 중인 소리를 대신 듣고 있으면 여기에 나타납니다.</p></div>
+  <h2>최근 자막</h2>
+  <pre id="transcript"></pre>
+</main>
+<script type="module" src="/demo/trial.js"></script>
 </html>

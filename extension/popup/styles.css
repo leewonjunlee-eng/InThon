@@ -300,3 +300,81 @@ body {
     min-height: 180px;
   }
 }
+
+/* 툴바 아이콘을 눌렀을 때만 뜨는 작은 팝업 */
+html {
+  width: 340px;
+}
+#ab-mock {
+  padding: 0;
+  background-image: none;
+}
+#ab-mock .app {
+  height: 460px;
+  min-height: 460px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+#ab-mock header {
+  padding: 10px 14px;
+}
+#ab-mock main {
+  padding: 12px;
+}
+#ab-mock .app > footer {
+  padding: 8px 14px;
+}
+#ab-mock .stack {
+  display: grid;
+  gap: 6px;
+}
+#ab-mock .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#ab-mock .check input {
+  width: auto;
+}
+#ab-mock select,
+#ab-mock input[type="text"],
+#ab-mock input[type="url"],
+#ab-mock input[type="password"] {
+  font: inherit;
+  padding: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+}
+#ab-mock .map {
+  position: relative;
+  height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  touch-action: none;
+  cursor: crosshair;
+}
+#ab-mock .map .head {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.6;
+}
+#ab-mock .map .dot {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #6254d8;
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+}

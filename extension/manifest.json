@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Catch Sound",
+  "version": "0.1.0",
+  "description": "보고 있는 일에 맞춰 탭 소리를 메인과 대기로 나누고, 대기 중인 소리를 대신 들어 줍니다.",
+  "minimum_chrome_version": "139",
+  "permissions": ["activeTab", "tabCapture", "offscreen", "storage", "tabs", "notifications", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "icons": { "128": "icon.png" },
+  "action": { "default_title": "Catch Sound", "default_popup": "popup/index.html", "default_icon": "icon.png" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [{ "matches": ["http://*/*", "https://*/*"], "js": ["content.js"], "run_at": "document_idle" }],
+  "commands": {
+    "connect-tab": { "suggested_key": { "default": "Alt+Shift+K" }, "description": "현재 탭 소리 연결" },
+    "switch-focus": { "suggested_key": { "default": "Alt+Shift+Right" }, "description": "다른 소리에 집중" },
+    "restore": { "suggested_key": { "default": "Alt+Shift+Left" }, "description": "이전 상태로 복귀" }
+  }
+}
