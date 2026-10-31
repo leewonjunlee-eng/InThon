@@ -18,7 +18,7 @@ PUBLIC_DIRS = ("demo", "extension")  # .env가 있는 루트 전체를 공개하
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css", ".wav": "audio/wav", ".svg": "image/svg+xml", ".png": "image/png"}
 MAX_BODY = 256 * 1024
 MAX_TOKENS = 2000  # 모델이 추론에 토큰을 먼저 써서 800이면 응답이 잘린다.
-RATE_LIMIT = 120  # ponytail: 프로세스별 분당 제한, 여러 인스턴스로 배포하면 공유 저장소 필요
+RATE_LIMIT = 180  # ponytail: 프로세스별 분당 제한, 여러 인스턴스로 배포하면 공유 저장소 필요
 
 
 def load_settings():

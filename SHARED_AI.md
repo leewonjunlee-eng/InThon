@@ -25,7 +25,7 @@
 - 로컬 서버는 계속 `python server/server.py`로 실행할 수 있다. 이 경우 확장 서버 주소를 `http://127.0.0.1:8787`로 설정한다.
 - `.env`, `.env.shared`, `.env.local`, `.vercel/`는 Git에서 제외하고, `.vercelignore`에서도 환경 파일을 배포 업로드에서 제외한다.
 - 개발 PC의 `extension/private-connection.json`은 해당 PC 전용 연결 정보로, Git과 모든 ZIP에서 제외한다. 일반 ZIP에는 소스의 공용 연결 정보를 넣고, 별도 배포 빌드에는 빌드 시 지정한 연결 정보를 넣는다.
-- 호출 제한은 사용자 IP·프로세스별 분당 120회다. 여러 인스턴스에 걸친 전역 사용량 제한은 제공하지 않는다.
+- 호출 제한은 사용자 IP·프로세스별 분당 180회다. 여러 인스턴스에 걸친 전역 사용량 제한은 제공하지 않는다.
 - 기능 브랜치 push는 Preview로만 배포된다. Preview는 Vercel 인증으로 보호되고 환경변수가 없어(`aiReady:false`) 공용 서버로 쓸 수 없으며, 공용 주소는 Production 배포만 반영한다.
 
 ## 패키지와 검증
