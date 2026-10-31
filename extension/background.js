@@ -1,7 +1,8 @@
 import { createApi } from "./lib/api.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-profiles.js";
 import { scanConnectedTab } from "./lib/page-context.js";
-import { normalizeConnection } from "./lib/connection.js";
+import { normalizeConnection, applyBundledConnection } from "./lib/connection.js";
+import { SERVER_CONFIG } from "./server-config.js";
 import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf } from "./lib/logic.js";
 
 const STANDBY_DELAY_MS = 2000;
@@ -26,6 +27,7 @@ const initialState = () => ({
 });
 
 let state = null;
+let loading = null;
 let standbyTimer = null;
 let offscreenReady = null;
 let alertQueue = Promise.resolve();
@@ -40,16 +42,41 @@ const api = createApi(async () => (await load()).settings);
 // 서비스 워커는 언제든 내려갈 수 있어 상태를 저장소에서 복구한다.
 async function load() {
   if (state) return state;
+  loading ??= restoreState().catch(error => { loading = null; throw error; });
+  return loading;
+}
+
+async function bundledConnection() {
+  if (SERVER_CONFIG.token) return SERVER_CONFIG;
+  if (typeof chrome.runtime.getURL === "function") {
+    try {
+      const response = await fetch(chrome.runtime.getURL("private-connection.json"));
+      if (response.ok) {
+        const local = await response.json();
+        if (local?.token && local?.serverUrl) return local;
+      }
+    } catch { /* Ordinary builds have no machine-local connection override. */ }
+  }
+  return SERVER_CONFIG;
+}
+
+async function restoreState() {
   const { session = {} } = await chrome.storage.session.get("session");
   const { saved = {} } = await chrome.storage.local.get("saved");
-  state = { ...initialState(), ...session, ...saved };
-  state.settings = { ...DEFAULT_SETTINGS, ...state.settings };
-  for (const slot of state.slots) {
+  const restored = { ...initialState(), ...session, ...saved };
+  restored.settings = { ...DEFAULT_SETTINGS, ...restored.settings };
+  const connection = await applyBundledConnection(restored.settings, await bundledConnection());
+  if (connection !== restored.settings) {
+    restored.settings = connection;
+    await chrome.storage.local.set({ saved: { ...saved, settings: connection } });
+  }
+  for (const slot of restored.slots) {
     if (slot.alertSetup?.status === "generating") {
       slot.alertSetup.status = "error";
       slot.alertSetup.error = "생성이 중단됐습니다. 다시 만들어 주세요.";
     }
   }
+  state = restored;
   return state;
 }
 
@@ -434,6 +461,13 @@ const commands = {
     }
   },
   "test-server": () => api.checkConnection(),
+  "restore-server": async () => {
+    const bundle = await bundledConnection();
+    if (!bundle?.token) throw new Error("공용 서버용 확장 ZIP을 설치해 주세요. 이 빌드에는 접속 토큰이 없습니다.");
+    state.settings = await applyBundledConnection(state.settings, bundle, true);
+    await commit();
+    return api.checkConnection();
+  },
 };
 
 async function run(cmd, payload) {

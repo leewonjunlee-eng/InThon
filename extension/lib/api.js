@@ -33,7 +33,7 @@ export function createApi(getConfig) {
         throw new Error(restartMessage);
       }
       const body = await response.json().catch(() => ({}));
-      if (response.status === 401) throw new Error(body.error || "AI 서버 접속 토큰이 올바르지 않습니다.");
+      if (response.status === 401) throw new Error((body.error || "AI 서버 접속 토큰이 올바르지 않습니다.") + " 세부설정에서 공용 서버 기본 연결 복원을 눌러 주세요.");
       throw new Error(body.error || `server ${response.status}`);
     }
     return response.json();

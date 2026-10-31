@@ -4,7 +4,7 @@ import { access, readFile } from 'node:fs/promises';
 
 test('merged extension retains main shortcuts, version and all referenced assets', async () => {
   const manifest = JSON.parse(await readFile(new URL('../extension/manifest.json', import.meta.url), 'utf8'));
-  assert.equal(manifest.version, '0.2.0');
+  assert.equal(manifest.version, '0.2.1');
   assert.deepEqual(Object.values(manifest.commands).map(item => item.suggested_key.default), ['Ctrl+Shift+K', 'Ctrl+Shift+Right', 'Ctrl+Shift+Left']);
   assert(Object.values(manifest.commands).every(item => item.suggested_key.mac.startsWith('MacCtrl+Shift+')));
   const paths = [manifest.background.service_worker, manifest.action.default_popup, manifest.action.default_icon,

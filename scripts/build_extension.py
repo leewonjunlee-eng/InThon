@@ -26,6 +26,8 @@ def build(server_url=None, token_file=None):
         for path in sorted((ROOT / "extension").rglob("*")):
             if path.is_file():
                 name = path.relative_to(ROOT / "extension").as_posix()
+                if name == "private-connection.json":
+                    continue
                 if name == "server-config.js" and config:
                     archive.writestr(name, config)
                 else:

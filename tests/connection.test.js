@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConnection } from '../extension/lib/connection.js';
+import { normalizeConnection, applyBundledConnection } from '../extension/lib/connection.js';
 import { createApi } from '../extension/lib/api.js';
 
 test('shared connection configuration validates the URL without embedding credentials in it', () => {
@@ -8,6 +8,24 @@ test('shared connection configuration validates the URL without embedding creden
   assert.throws(() => normalizeConnection({ serverUrl: 'file:///secret' }));
   assert.throws(() => normalizeConnection({ serverUrl: 'https://user:secret@relay.example' }));
   assert.throws(() => normalizeConnection({ serverUrl: 'https://relay.example/?key=secret' }));
+});
+
+test('a shared bundle replaces old saved credentials once without losing other settings', async () => {
+  const bundle = { serverUrl: 'https://relay.example', token: 'new-access' };
+  const previous = { serverUrl: 'http://127.0.0.1:8787', token: 'old-access', bgVol: 23, dnd: true };
+  const updated = await applyBundledConnection(previous, bundle);
+  assert.equal(updated.serverUrl, bundle.serverUrl);
+  assert.equal(updated.token, bundle.token);
+  assert.equal(updated.bgVol, 23);
+  assert.equal(updated.dnd, true);
+  assert.equal(updated.connectionBundleId.length, 64);
+  const manual = { ...updated, serverUrl: 'http://localhost:8787', token: 'manual' };
+  assert.equal(await applyBundledConnection(manual, bundle), manual, 'later explicit settings must remain');
+  assert.equal((await applyBundledConnection(manual, bundle, true)).token, 'new-access', 'restore repairs a bad manual token');
+  const rotated = await applyBundledConnection(updated, { ...bundle, token: 'rotated-access' });
+  assert.equal(rotated.token, 'rotated-access');
+  assert.notEqual(rotated.connectionBundleId, updated.connectionBundleId);
+  assert.equal(await applyBundledConnection(previous, { ...bundle, token: '' }), previous);
 });
 
 test('connection check verifies cloud readiness and authenticates with only the relay token', async () => {

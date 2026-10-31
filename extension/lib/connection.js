@@ -7,3 +7,15 @@ export function normalizeConnection({ serverUrl, token = "" }) {
   }
   return { serverUrl: url.href.replace(/\/+$/, ""), token: String(token).trim().slice(0, 4096) };
 }
+
+// A new shared package must replace a saved localhost/old-token connection once.
+// Its fingerprint then lets subsequent manual server choices remain intact.
+export async function applyBundledConnection(settings, bundle, force = false) {
+  if (!bundle?.token) return settings;
+  const connection = normalizeConnection(bundle);
+  const bytes = new TextEncoder().encode(connection.serverUrl + "\n" + connection.token);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const id = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+  if (!force && settings.connectionBundleId === id) return settings;
+  return { ...settings, ...connection, connectionBundleId: id };
+}

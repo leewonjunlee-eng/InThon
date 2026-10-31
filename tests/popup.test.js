@@ -58,6 +58,10 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert.equal(settings.patch.token, 'relay-access');
     assert(sent.some(message => message.cmd === 'test-server'));
     assert(main.innerHTML.includes('레블업 AI 서버 연결을 확인했어요'));
+    assert(main.innerHTML.includes('공용 서버 기본 연결 복원'));
+    await click('restore-server');
+    assert(sent.some(message => message.cmd === 'restore-server'));
+    assert(main.innerHTML.includes('공용 AI 서버 연결을 복원했어요'));
   } finally {
     globalThis.document = documentBefore;
     globalThis.chrome = chromeBefore;

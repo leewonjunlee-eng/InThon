@@ -56,6 +56,7 @@ class SharedBuildTests(unittest.TestCase):
             (root / "extension").mkdir()
             source = root / "extension" / "server-config.js"
             source.write_text("local source", encoding="utf-8")
+            (root / "extension" / "private-connection.json").write_text("never-copy-this-local-override")
             credentials = root / ".env.shared"
             credentials.write_text("AUDIO_FOCUS_TOKEN=limited-access\nOPENAI_API_KEY=never-include-provider-key\n")
             with patch.object(build_extension, "ROOT", root):

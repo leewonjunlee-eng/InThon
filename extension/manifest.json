@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Catch Sound",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "보고 있는 일에 맞춰 탭 소리를 메인과 대기로 나누고, 대기 중인 소리를 대신 들어 줍니다.",
   "minimum_chrome_version": "139",
   "permissions": [

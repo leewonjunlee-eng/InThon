@@ -154,3 +154,4 @@ dist/
 __pycache__/
 *.pyc
 .venv/
+extension/private-connection.json
