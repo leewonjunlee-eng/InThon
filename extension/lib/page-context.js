@@ -4,8 +4,12 @@ export function collectPageContext() {
   const visibleText = selector => trim(document.querySelector(selector)?.innerText, 3500);
   const meta = selector => trim(document.querySelector(selector)?.getAttribute("content"), 1500);
   const youtube = /(^|\.)youtube\.com$/.test(location.hostname);
-  const title = youtube ? visibleText("ytd-watch-metadata h1") || document.title : document.title;
-  const description = (youtube ? visibleText("ytd-watch-metadata #description") : "")
+  // The player holds the full data even while the description is collapsed or not rendered yet.
+  const video = youtube ? document.querySelector("#movie_player")?.getPlayerResponse?.()?.videoDetails : null;
+  const fullDescription = String(video?.shortDescription || "").split("\n")
+    .filter(line => !/https?:\/\/|^\s*#/.test(line)).join(" ");
+  const title = youtube ? visibleText("ytd-watch-metadata h1") || video?.title || document.title : document.title;
+  const description = (youtube ? trim(fullDescription, 1500) || visibleText("ytd-watch-metadata #description") : "")
     || meta('meta[name="description"]') || meta('meta[property="og:description"]');
   const headings = [...document.querySelectorAll(youtube ? "ytd-watch-metadata h1" : "h1, h2")]
     .slice(0, 8).map(node => trim(node.innerText, 120)).filter(Boolean).join(" / ");
@@ -27,12 +31,13 @@ export function collectPageContext() {
       }
     }
   }
-  return { title: trim(title, 300), description: trim(description, 1500),
+  return { title: trim(title, 300), channel: trim(video?.author, 100), keywords: trim((video?.keywords ?? []).join(", "), 300),
+    description: trim(description, 1500),
     headings: trim(headings, 600), pageText: trim(pageText, 3500), captions: trim(captions, 1000) };
 }
 
 export async function scanConnectedTab(tabId) {
-  const [frame] = await chrome.scripting.executeScript({ target: { tabId }, func: collectPageContext });
+  const [frame] = await chrome.scripting.executeScript({ target: { tabId }, world: "MAIN", func: collectPageContext });
   if (!frame?.result || typeof frame.result !== "object") throw new Error("탭 내용을 읽지 못했습니다.");
   return frame.result;
 }

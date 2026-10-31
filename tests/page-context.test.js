@@ -22,6 +22,21 @@ test("YouTube scanning uses the current video description and displayed captions
   } finally { globalThis.document = originalDocument; globalThis.location = originalLocation; }
 });
 
+test("YouTube scanning reads the player data and drops link and hashtag lines", () => {
+  const originalDocument = globalThis.document, originalLocation = globalThis.location;
+  const player = { getPlayerResponse: () => ({ videoDetails: { title: "T1 vs CFO", author: "LCK", keywords: ["티원", "CFO"],
+    shortDescription: "#Worlds2026\n스위스 4일차 경기\n- 공식: https://example.com" } }) };
+  globalThis.location = { hostname: "www.youtube.com" };
+  globalThis.document = { title: "YouTube", querySelector: selector => selector === "#movie_player" ? player : null, querySelectorAll: () => [] };
+  try {
+    const result = collectPageContext();
+    assert.equal(result.title, "T1 vs CFO");
+    assert.equal(result.channel, "LCK");
+    assert.equal(result.keywords, "티원, CFO");
+    assert.equal(result.description, "스위스 4일차 경기");
+  } finally { globalThis.document = originalDocument; globalThis.location = originalLocation; }
+});
+
 test("generic page scanning excludes forms, navigation and invisible content and bounds the text", () => {
   const globals = Object.fromEntries(["document", "location", "NodeFilter", "getComputedStyle"].map(key => [key, globalThis[key]]));
   const node = (value, excluded = false, visible = true) => ({ textContent: value,

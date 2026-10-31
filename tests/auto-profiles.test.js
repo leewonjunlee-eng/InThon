@@ -46,6 +46,28 @@ test("one subtitle refinement is allowed, but user edits are never overwritten",
   assert.equal(requests.length, 2);
 });
 
+test("refinement repeats on a schedule and a failed refinement keeps the working conditions", async () => {
+  const requests = [];
+  let fail = false;
+  const f = fixture(async value => { if (fail) throw new Error("server"); requests.push(value); return profile(); });
+  f.context("현재 진행 중인 실제 대사입니다. ".repeat(20));
+  await f.controller.generate(0);
+  assert(requests[0].text.length > 120, "the first generation already uses heard speech");
+  for (const elapsed of [31000, 151000, 401000]) {
+    f.slots[0].alertSetup.startedAt = Date.now() - elapsed;
+    await f.controller.observe(0);
+  }
+  assert.equal(requests.length, 4);
+  f.slots[0].alertSetup.startedAt = Date.now() - 900000;
+  await f.controller.observe(0);
+  assert.equal(requests.length, 4, "refinement stops after the last stage");
+  fail = true;
+  f.slots[0].alertSetup.refinements = 0;
+  await f.controller.observe(0);
+  assert.equal(f.slots[0].alertSetup.status, "ready");
+  assert(alertProfileFor(f.slots[0]));
+});
+
 test("late generation cannot overwrite edits, a replacement connection, or a disabled profile", async () => {
   for (const change of [
     f => f.controller.save(0, profile("내 수정")),

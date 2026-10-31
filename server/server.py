@@ -79,14 +79,25 @@ def text_field(body, name, limit=20000):
     return value[:limit]
 
 
+def quoted(evidence, text):
+    """모델이 든 근거가 실제 말소리 기록에 있을 때만 인정한다."""
+    line = re.sub(r"^\[[^\]]*\]", "", str(evidence).strip()).strip()
+    compact = re.sub(r"\s+", "", line)
+    return len(compact) >= 4 and not line.startswith("(") and compact in re.sub(r"\s+", "", text)
+
+
 def judge(body):
+    text = text_field(body, "text")
     result = ask_json(
-        "자막 기록을 보고 사용자가 지금 알아야 할 순간인지 판단한다. 기록에 있는 내용만 근거로 삼는다. "
+        "자막 기록을 보고 아래 조건 중 하나에 해당하는 사건이 벌어졌는지 판단한다. 화자가 그 사건이 벌어지고 있거나 방금 벌어졌다고 전하면 important를 true로 한다. "
+        "음성 인식 기록이라 오타와 이름 표기 차이가 있으니 같은 사건이면 인정한다. "
+        "같은 주제의 일반 설명, 예전 일 회상, 예고, 가정, 사건 없는 단어 언급은 false다. "
+        "evidence에는 판단 근거가 된 말을 기록에서 한 구절 그대로 옮긴다. "
         f"조건: {text_field(body, 'condition', 2000)}. "
-        '형식: {"important":true 또는 false,"reason":"짧은 이유"}',
-        text_field(body, "text"),
+        '형식: {"important":true 또는 false,"evidence":"기록의 구절","reason":"짧은 이유"}',
+        text,
     )
-    return {"important": bool(result.get("important")), "reason": str(result.get("reason", ""))}
+    return {"important": bool(result.get("important")) and quoted(result.get("evidence", ""), text), "reason": str(result.get("reason", ""))}
 
 
 def summarize(body):
@@ -141,11 +152,17 @@ def profile(body):
 
 def suggest_profile(body):
     context = {name: text_field(body, name, limit) for name, limit in (
-        ("title", 300), ("host", 200), ("description", 1500), ("headings", 600),
+        ("title", 300), ("host", 200), ("channel", 100), ("keywords", 300), ("description", 1500), ("headings", 600),
         ("pageText", 3500), ("captions", 1000), ("text", 6000), ("request", 1000))}
     result = ask_json(
         "연결된 탭에서 읽은 제목, 사이트, 영상 설명, 본문, 현재 화면 자막과 음성 인식 자막을 참고해 "
-        "사용자가 다른 일을 할 때 받을 알림 조건 3~5개를 제안한다. 제목보다 구체적인 설명과 자막을 우선한다. "
+        "사용자가 다른 일을 할 때 받을 알림 조건 3~5개를 제안한다. "
+        "근거 우선순위는 text(음성 인식), captions, pageText, description, keywords, title 순이다. "
+        "먼저 이 탭에서 실제로 무슨 내용이 진행되는지 파악하고, 이 탭에서만 의미 있는 사건을 고른다. 제목을 바꿔 쓴 조건은 만들지 않는다. "
+        "자막에 나온 인물, 팀, 제품, 개념, 과제 이름을 조건에 직접 쓴다. 근거가 제목뿐이면 그 콘텐츠 종류에서 말로 확인되는 대표 사건을 쓴다. "
+        "'중요한 내용', '핵심 내용', '주요 장면', '새로운 정보', '주제 전환', '흥미로운 순간'처럼 어느 탭에나 맞는 표현은 금지한다. "
+        "각 조건은 말소리만 듣고 일어났는지 판별할 수 있어야 한다. "
+        "자막은 내용 파악과 이름 확인에 쓰고, 이미 지나간 장면을 조건으로 옮기지 않는다. 조건은 앞으로 일어날 수 있는 사건으로 쓴다. "
         "request는 사용자가 직접 적은 알림 선호다. request가 있으면 이것을 가장 우선해 기존 제안을 대체한다. "
         "제목이나 설명이 대회 일정 위주여도 사용자가 경기 중 갱킹·한타를 원하면 일정 안내를 만들지 않는다. "
         "사용자가 특정 팀·사람·대상을 지정하면 모든 조건에 그 범위를 명시하고, 다른 대상의 사건은 제외한다. "

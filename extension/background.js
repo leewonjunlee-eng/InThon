@@ -347,7 +347,7 @@ async function onEngineEvent(event) {
   } else if (event.type === "transcript") {
     const index = slotIndex(event.id);
     if (index === -1) return;
-    state.transcript = [...state.transcript, { tabId: event.id, time: event.time, text: event.text }].slice(-40);
+    state.transcript = [...state.transcript, { tabId: event.id, time: event.time, text: event.text }].slice(-120);
     void Promise.resolve(autoProfiles.observe(index)).catch(() => {});
   } else if (event.type === "status") {
     state.status = event.text;

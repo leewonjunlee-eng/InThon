@@ -23,6 +23,9 @@ export function contextProfile(profile, contextOnly) {
   return { ...(profile ?? { id: "context", name: "내용 파악", keywords: [], aliases: {} }), contextOnly };
 }
 
+// Later refinements catch up with what the tab actually became after the title.
+const REFINE_AFTER_MS = [30000, 150000, 400000];
+
 export function createAutoProfiles({ api, slots, transcript, publish, apply, readContext }) {
   async function generate(index, { refine = false, request } = {}) {
     const slot = slots()[index];
@@ -33,6 +36,7 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
     const setup = slot.alertSetup = {
       ...previous, status: "generating", phase: readContext ? "scanning" : "generating", error: "", edited: false,
       startedAt: previous?.startedAt ?? Date.now(), refined: refine || previous?.refined || false,
+      refinements: (previous?.refinements ?? 0) + (refine ? 1 : 0),
       request: userRequest,
     };
     slot.profileId = "auto";
@@ -50,13 +54,14 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
       }
       const result = await api.suggestProfile({ ...page, title: page.title || slot.title, host: slot.host,
         ...(userRequest ? { request: userRequest } : {}),
-        text: refine || userRequest ? transcript(slot.tabId).slice(-6000) : "" });
+        text: transcript(slot.tabId).slice(-6000) });
       if (!current()) return;
       setup.profile = cleanAlertProfile(result);
       setup.status = "ready";
       setup.source = refine ? "transcript" : Object.keys(page).length ? "page" : "title";
     } catch (error) {
       if (!current()) return;
+      if (refine && setup.profile) { setup.status = "ready"; return; } // 기존 조건은 계속 쓸 수 있다.
       setup.status = "error";
       setup.error = error.message || "알림 조건을 만들지 못했습니다.";
     }
@@ -65,8 +70,9 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
 
   function observe(index) {
     const slot = slots()[index], setup = slot?.alertSetup;
-    if (slot?.profileId !== "auto" || !setup || setup.edited || setup.refined || setup.status !== "ready") return;
-    if (Date.now() - setup.startedAt < 30000 || transcript(slot.tabId).length < 120) return;
+    if (slot?.profileId !== "auto" || !setup || setup.edited || setup.status !== "ready") return;
+    const wait = REFINE_AFTER_MS[setup.refinements ?? 0];
+    if (wait === undefined || Date.now() - setup.startedAt < wait || transcript(slot.tabId).length < 120) return;
     return generate(index, { refine: true });
   }
 
