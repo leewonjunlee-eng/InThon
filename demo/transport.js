@@ -16,7 +16,7 @@ export function createPreviewTransport() {
   const state = {
     slots: [emptySlot(), emptySlot()], manual: null, peek: null, snapshot: null,
     view: { tabId: null, title: "웹 체험 · 샘플 음원", host: "", topic: null, focused: true },
-    moments: [], transcript: [], returnSummary: null, seenGuide: true,
+    moments: [], transcript: [], trace: [], returnSummary: null, seenGuide: true,
     profiles: structuredClone(PROFILES), settings: { ...DEFAULT_SETTINGS, auto: false, serverUrl: location.origin },
     audible: available, available,
     status: "샘플 소리를 연결해 음량·좌우 방향·집중 전환을 시험하세요.",
@@ -45,6 +45,7 @@ export function createPreviewTransport() {
   function onEvent(event) {
     if (event.type === "status") state.status = event.text;
     if (event.type === "moment") state.moments = [event.moment, ...state.moments].slice(0, 30);
+    if (event.type === "trace") state.trace = [...state.trace, { ...event, tabId: event.id }].slice(-60);
     if (event.type === "transcript") {
       const index = state.slots.findIndex(slot => slot.tabId === event.id);
       if (index === -1) return;

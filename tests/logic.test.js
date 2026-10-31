@@ -102,3 +102,10 @@ test("소리 급등은 지속될 때 한 번만 감지하고 재사용 대기를
   assert.equal(feed(-15, 4).length, 1, "대기 후 다시 감지");
   assert.equal(detector.push(-Infinity, now), false);
 });
+
+test("받아쓰기 오차는 긴 단어만 허용하고 짧은 단어는 정확히 맞아야 한다", () => {
+  assert.equal(findKeyword("글루핑 원딜이 살아남습니다 펜타클", ["펜타킬"]), "펜타킬");
+  assert.equal(findKeyword("바론을 처지합니다", ["바론을 처치"]), "바론을 처치");
+  assert.equal(findKeyword("끝내지 않았습니다", ["끝내기"]), null);
+  assert.equal(findKeyword("한 번 더 기다려 봅니다", ["한타", "역전", "홈런"]), null);
+});

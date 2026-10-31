@@ -263,3 +263,11 @@ test("a server must support prompts so user requests cannot be silently ignored"
   assert.equal(f.slots[0].alertSetup.status, "ready");
   assert.equal(f.applies(), 2, "listening starts first, then the answer applies");
 });
+
+test("내부 소리 기록은 조건 생성에 말소리로 보내지 않는다", async () => {
+  let sent;
+  const controller = createAutoProfiles({ api: { suggestProfile: async body => { sent = body.text; return profile(); } }, slots: () => [{ tabId: 1, title: "t", host: "h" }],
+    transcript: () => "한타가 열립니다\n(소리 변화: 함성이나 고함 급등)\n바론으로 갑니다", publish: async () => {}, apply: async () => {} });
+  await controller.generate(0);
+  assert.equal(sent, "한타가 열립니다\n바론으로 갑니다");
+});

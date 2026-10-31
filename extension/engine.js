@@ -17,6 +17,8 @@ const SURGE_WAIT_MS = 3000; // 함성 뒤에 나오는 자막까지 함께 판�
 const SURGE_RULE = "\n또는: 소리가 갑자기 커진 순간에 화자가 놀람, 환호, 흥분한 말투로 방금 벌어진 일을 전할 때";
 const DUCK_DB = -38;
 const INTERIM_CHARS = 24;
+const TAIL_MS = 5000; // 이어진 말로 볼 앞줄의 시간
+const TAIL_CHARS = 12;
 const SCREEN_EVERY_MS = 2000;
 const SCREEN_GAP_MS = 15000;
 const SCREEN_DIFF = 18;
@@ -266,7 +268,10 @@ export class AudioEngine {
     recognition.onerror = (event) => {
       if (event.error === "no-speech" || event.error === "aborted") return;
       status("error", `음성 인식 오류 (${event.error})`);
-      if (!FATAL.has(event.error)) return;
+      if (!FATAL.has(event.error)) {
+        this.trace(channel, `음성 인식 일시 오류(${event.error}), 다시 시작합니다.`);
+        return;
+      }
       live = false;
       this.emit({ type: "status", id: channel.id, text: `음성 인식 오류(${event.error}). 소리 변화만 감지합니다.` });
     };
@@ -292,15 +297,28 @@ export class AudioEngine {
   onSpeech(channel, raw) {
     if (!raw || !channel.profile) return;
     const text = correctTranscript(raw, channel.profile.aliases);
+    const now = Date.now();
+    // 긴 말은 여러 줄로 나뉘어 기록되므로 앞줄 끝과 이어서 찾는다. 앞줄에서 이미 찾은 단어는 뺀다.
+    const before = channel.lines.at(-1);
+    const tail = before && !before.text.startsWith("(") && now - before.t < TAIL_MS ? before.text.slice(-TAIL_CHARS) : "";
+    const find = (words = []) => findKeyword(tail + text, words.filter(word => !findKeyword(tail, [word])));
     this.addLine(channel, text);
     if (channel.profile.contextOnly) return;
-    const keyword = findKeyword(text, channel.profile.keywords);
-    if (keyword) return this.moment(channel, { kind: "keyword", keyword });
-    const now = Date.now();
-    if (findKeyword(text, channel.profile.watchPhrases ?? []) && now - (channel.lastWatchAt ?? 0) >= WATCH_GAP_MS) {
-      channel.lastWatchAt = now;
-      this.moment(channel, { kind: "watch" });
+    const keyword = find(channel.profile.keywords);
+    if (keyword) {
+      this.trace(channel, `키워드 "${keyword}" 인식, 바로 알림`);
+      return this.moment(channel, { kind: "keyword", keyword });
     }
+    const phrase = find(channel.profile.watchPhrases);
+    if (phrase && now - (channel.lastWatchAt ?? 0) >= WATCH_GAP_MS) {
+      channel.lastWatchAt = now;
+      this.moment(channel, { kind: "watch", phrase });
+    }
+  }
+
+  // 인식 확인 화면에 판단 과정을 남긴다.
+  trace(channel, text) {
+    this.emit({ type: "trace", id: channel.id, time: clock(Date.now()), text });
   }
 
   tick(channel) {
@@ -348,11 +366,15 @@ export class AudioEngine {
     finally { channel.judging = false; }
   }
 
-  async moment(channel, { kind, keyword = null }) {
+  async moment(channel, { kind, keyword = null, phrase = "" }) {
     if (!channel.profile || channel.profile.contextOnly) return;
     const now = Date.now();
     // 지정 단어는 말 그대로 확인된 신호라 간격 제한을 받지 않는다.
-    if (kind !== "keyword" && now - channel.lastMomentAt < MOMENT_GAP_MS) return;
+    const label = { judge: "5초 판단", watch: `표현 "${phrase}"`, surge: "소리 급등" }[kind];
+    if (kind !== "keyword" && now - channel.lastMomentAt < MOMENT_GAP_MS) {
+      if (kind !== "judge") this.trace(channel, `${label}: 방금 알림이 나가서 건너뜀`);
+      return;
+    }
     const { condition, summaryFocus, name } = channel.profile;
     const alertedBefore = channel.lastMomentAt;
     // 판단 중 다른 알림이 나갔다면 그 말은 이미 알린 것이다. 이후의 말은 다음 주기에 판단한다.
@@ -363,15 +385,20 @@ export class AudioEngine {
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
     const gated = kind === "judge" || kind === "watch"; // AI가 확인해야만 알린다.
     if (gated && !hasSpeech) return;
-    if (channel.profile.requireEvidence && !hasSpeech) return;
+    if (channel.profile.requireEvidence && !hasSpeech) {
+      if (kind === "surge") this.trace(channel, "소리 급등: 인식된 말이 없어 알리지 않음");
+      return;
+    }
     let confident = kind === "keyword";
 
     if (!confident && hasSpeech) {
       try {
         const { important } = await this.monitored(channel, "judge", () => this.api.judge(text, kind === "surge" ? condition + SURGE_RULE : condition));
+        this.trace(channel, `${label}: AI가 ${important ? "조건에 맞다고 판단" : "조건에 맞지 않다고 판단"}`);
         if (!important || !current()) return;
         confident = true;
       } catch {
+        this.trace(channel, `${label}: AI 판단 실패`);
         if (!current() || gated || channel.profile?.requireEvidence) return;
       }
     }

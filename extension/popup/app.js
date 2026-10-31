@@ -84,11 +84,24 @@ function renderSlot(slot, i) {
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
   html += `<label class="stack slot-preset"><span class="sub">알림 프리셋</span><select data-profile="${i}" aria-label="${label(i)} 탭 알림 프리셋"><option value="" ${!slot.profileId ? "selected" : ""}>알림 사용 안 함</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI 자동 설정</option>${state.profiles.filter(profile => profile.id.startsWith("custom-")).map(profile => `<option value="${escapeHTML(profile.id)}" ${slot.profileId === profile.id ? "selected" : ""}>${escapeHTML(profile.name)}</option>`).join("")}</select></label>`;
   html += renderAlertSummary(slot, i);
+  html += renderRecognition(slot);
   html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 음량</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 음량"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
   html += button(focused ? "집중 중" : "여기에 집중", `focus:${i}`, focused ? "solid full" : "full", focused);
   html += `<div class="slot-actions">${button("탭으로 이동 ↗", `goto:${slot.tabId}`, "quiet")}${button("소형 플레이어", `pip:${i}`, "quiet")}${button("연결 해제", `stop:${i}`, "quiet")}</div>`;
   return html + "</article>";
+}
+
+function renderRecognition(slot) {
+  const profile = slot.profileId === "auto" ? slot.alertSetup?.profile : state.profiles.find(item => item.id === slot.profileId);
+  const status = !slot.profileId ? "알림을 쓰지 않아 듣지 않습니다."
+    : slot.role === "standby" ? "대기 탭이라 듣고 알림까지 판단합니다."
+    : slot.profileId === "auto" ? "집중 탭이라 듣기만 하고 알림은 꺼져 있습니다."
+    : "집중 탭이라 듣지 않습니다. 대기 탭이 되면 시작합니다.";
+  const mine = list => (list ?? []).filter(line => (line.tabId ?? line.id) === slot.tabId).slice(-6);
+  const items = (lines, empty) => lines.length ? lines.map(line => `<li><span class="sub">${escapeHTML(line.time ?? "")}</span> ${escapeHTML(line.text)}</li>`).join("") : `<li class="sub">${empty}</li>`;
+  const words = list => escapeHTML((list ?? []).join(", ") || "없음");
+  return `<details class="settings-advanced recognition" data-profile-detail="recognition-${slot.tabId}"><summary>인식 확인</summary><div class="stack"><p class="sub">${status}</p><p class="sub">바로 알림 키워드: ${words(profile?.keywords)}</p><p class="sub">AI 확인 표현: ${words(profile?.watchPhrases)}</p><strong>들은 말</strong><ul class="recognition-log">${items(mine(state.transcript), "아직 인식된 말이 없습니다.")}</ul><strong>판단 기록</strong><ul class="recognition-log">${items(mine(state.trace), "아직 판단 기록이 없습니다.")}</ul></div></details>`;
 }
 
 function renderSound() {
@@ -115,7 +128,7 @@ function renderAlertSummary(slot, i) {
 
 function presetFields(profile, target) {
   const condition = target === "alert" ? numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")) : profile.condition;
-  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>감지 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML((profile.keywords ?? profile.watchPhrases ?? []).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요.</span></label>`;
+  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>감지 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML((profile.keywords ?? profile.watchPhrases ?? []).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요. 이 단어가 들리면 AI 확인 없이 바로 알려요.</span></label>`;
 }
 
 function presetKeywordDetail(profile) {

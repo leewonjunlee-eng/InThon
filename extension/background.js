@@ -31,6 +31,7 @@ const initialState = () => ({
   closedAlertIds: [],
   returnSummary: null,
   transcript: [],
+  trace: [],
   status: "",
   settings: { ...DEFAULT_SETTINGS },
   rules: {},
@@ -487,6 +488,8 @@ async function onEngineEvent(event) {
     if (index === -1) return;
     state.transcript = [...state.transcript, { tabId: event.id, time: event.time, text: event.text }].slice(-120);
     void Promise.resolve(autoProfiles.observe(index)).catch(() => {});
+  } else if (event.type === "trace") {
+    state.trace = [...state.trace, { tabId: event.id, time: event.time, text: event.text }].slice(-60);
   } else if (event.type === "status") {
     state.status = event.text;
   }

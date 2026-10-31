@@ -426,3 +426,6 @@ html.extension-popup { width: 460px; height: 600px; overflow: hidden; }
 #ab-mock .slot-actions > :last-child { justify-self: end; }
 
 #ab-mock .shortcut-help { font-size: clamp(8px, 1.9vw, 10px); text-align: center; white-space: nowrap; overflow-x: auto; color: #000; border-top: 1px solid var(--line); padding-top: 14px; text-decoration: underline; text-underline-offset: 3px; }
+#ab-mock .recognition .stack p { margin: 0; }
+#ab-mock .recognition-log { margin: 0; padding: 0; list-style: none; font-size: 12px; overflow-wrap: anywhere; }
+#ab-mock .recognition-log li { padding: 2px 0; }

@@ -3,15 +3,15 @@ import assert from "node:assert/strict";
 import { AudioEngine } from "../extension/engine.js";
 
 function fixture({ contextOnly = false, speech = true, judge = async () => ({ important: true }) } = {}) {
-  const events = [], calls = [];
+  const events = [], calls = [], traces = [];
   const engine = Object.create(AudioEngine.prototype);
-  engine.emit = event => events.push(event);
+  engine.emit = event => { (event.type === "trace" ? traces : events).push(event); };
   engine.api = { judge: async (...args) => { calls.push("judge"); return judge(...args); },
     summarize: async () => ({ summary: "판매가 시작됐습니다.", evidence: ["판매를 시작합니다."] }) };
   const channel = { id: 1, profile: { name: "판매", condition: "판매가 실제 시작되면", keywords: ["판매"], aliases: {}, contextOnly, requireEvidence: true },
     lines: speech ? [{ t: Date.now(), text: "판매를 시작합니다." }] : [], lastMomentAt: 0, lastMomentKind: null };
   engine.channels = new Map([[1, channel]]);
-  return { engine, channel, events, calls };
+  return { engine, channel, events, calls, traces };
 }
 
 test("main-tab context records transcripts without triggering keyword alerts or AI judgments", async () => {
@@ -115,4 +115,13 @@ test("a keyword alerts inside the gap", async t => {
   f.channel.lines.push({ t: now, text: "판매 시작" });
   await f.engine.moment(f.channel, { kind: "keyword", keyword: "판매" });
   assert.equal(f.events.filter(event => event.type === "moment").length, 2);
+});
+
+test("판단 결과와 실패가 인식 확인용 기록에 남는다", async () => {
+  const failed = fixture({ judge: async () => { throw new Error("offline"); } });
+  await failed.engine.moment(failed.channel, { kind: "judge" });
+  assert.match(failed.traces[0].text, /5초 판단: AI 판단 실패/);
+  const passed = fixture({ judge: async () => ({ important: false }) });
+  await passed.engine.moment(passed.channel, { kind: "watch", phrase: "기회" });
+  assert.match(passed.traces[0].text, /표현 "기회": AI가 조건에 맞지 않다고 판단/);
 });
