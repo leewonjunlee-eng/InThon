@@ -126,7 +126,7 @@ function renderAlertEditor() {
   const { index, tabId, profile } = alertEditor;
   const slot = state.slots[index];
   if (slot?.tabId !== tabId) return `<div class="notice">연결된 탭이 바뀌었습니다.</div>${button("돌아가기", "close-alert")}`;
-  let html = button("← 돌아가기", "close-alert", "quiet back-link") + `<div class="preset-heading"><h3>알림 조건을 다듬어주세요</h3></div>`;
+  let html = backNavigation("close-alert", "사운드홈으로 돌아가기") + `<div class="preset-heading"><h3>알림 조건을 다듬어주세요</h3></div>`;
   if (slot.alertSetup?.status === "generating") html += `<div class="notice" role="status">AI가 조건을 제안하고 있어요. 기다리는 동안 직접 작성해도 됩니다.</div>`;
   if (slot.alertSetup?.status === "error") html += `<div class="notice" role="alert">${escapeHTML(slot.alertSetup.error)} 직접 작성하거나 다시 시도해 주세요.</div>`;
   html += presetFields(profile, "alert");
@@ -152,8 +152,11 @@ function renderPresetList() {
   const items = profiles => profiles.map(profile => button(`<span class="preset-copy"><strong>${escapeHTML(profile.name)}</strong><span class="sub">${escapeHTML(profile.condition || "알림 조건 확인하기")}</span></span><span aria-hidden="true">›</span>`, `preset-view:${state.profiles.indexOf(profile)}`, "preset-item")).join("");
   return `<section class="settings-section"><div class="preset-section-heading"><h3>내 프리셋 <span class="count">${custom.length}</span></h3>${button("＋ 만들기", "preset-new", "preset-add")}</div>${custom.length ? `<div class="preset-list">${items(custom)}</div>` : `<div class="preset-empty"><p>나만의 알림을 만들어보세요</p><p class="sub">원하는 순간을 적으면 AI가 초안을 만들어요.</p>${button("첫 프리셋 만들기", "preset-new", "quiet first-preset-link")}</div>`}</section><section class="settings-section"><h3>기본 프리셋</h3><div class="preset-list">${items(builtIn)}</div></section>`;
 }
+function backNavigation(action, label, title = "") {
+  return `<div class="settings-top">${button("←", action, "quiet back-link", false, `aria-label="${escapeHTML(label)}"`)}${title ? `<h3>${escapeHTML(title)}</h3>` : ""}</div>`;
+}
 function presetBack() {
-  return `<div class="settings-top">${button("←", "preset-back", "quiet back-link", false, 'aria-label="프리셋 목록으로 돌아가기"')}</div>`;
+  return backNavigation("preset-back", "프리셋 목록으로 돌아가기");
 }
 function renderPresetDetail() {
   const profile = state.profiles.find(item => item.id === selectedPreset);
@@ -170,7 +173,7 @@ function renderPresetCreate() {
 function renderEntrust() {
   if (presetPage === "detail" && settingsTab === "presets") return renderPresetDetail();
   if (presetPage === "create" && settingsTab === "presets") return renderPresetCreate();
-  return `<div class="settings-top">${button("←", "tab:sound", "quiet back-link", false, 'aria-label="사운드홈으로 돌아가기"')}<h3>세부설정</h3></div><nav class="settings-tabs" aria-label="세부설정 분류">${button("기본 설정", "settings-tab:general", "", false, `aria-pressed="${settingsTab === "general"}"`)}${button("프리셋", "settings-tab:presets", "", false, `aria-pressed="${settingsTab === "presets"}"`)}</nav><div class="settings-content">${settingsTab === "general" ? renderGeneral() : renderPresetList()}</div>`;
+  return `${backNavigation("tab:sound", "사운드홈으로 돌아가기", "세부설정")}<nav class="settings-tabs" aria-label="세부설정 분류">${button("기본 설정", "settings-tab:general", "", false, `aria-pressed="${settingsTab === "general"}"`)}${button("프리셋", "settings-tab:presets", "", false, `aria-pressed="${settingsTab === "presets"}"`)}</nav><div class="settings-content">${settingsTab === "general" ? renderGeneral() : renderPresetList()}</div>`;
 }
 
 function render() {

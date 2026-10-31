@@ -42,6 +42,8 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert(main.innerHTML.includes("알림 조건 확인·수정"));
     await click("edit-alert:0");
     assert(main.innerHTML.includes("가격이 공개되면"));
+    assert(main.innerHTML.startsWith('<div class="settings-top">'));
+    assert(!main.innerHTML.includes("← 돌아가기"));
     assert(!main.innerHTML.includes('data-alert-field="summaryFocus"'));
     assert(main.innerHTML.includes('data-alert-field="keywords"'));
     handlers.get("input")({ target: { dataset: { alertField: "condition" }, value: "판매가 시작되면" } });
