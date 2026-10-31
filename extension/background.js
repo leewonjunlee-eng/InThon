@@ -345,11 +345,14 @@ function scheduleAlertExpiry(moment) {
   timer.unref?.();
   alertTimers.set(moment.id, timer);
 }
-async function dismissMoment(id) {
+function closeMoment(id) {
   state.closedAlertIds = [id, ...state.closedAlertIds.filter(item => item !== id)].slice(0, 250);
   state.moments = state.moments.filter(moment => moment.id !== id);
   clearTimeout(alertTimers.get(id));
   alertTimers.delete(id);
+}
+async function dismissMoment(id) {
+  closeMoment(id);
   await queueAlert(() => clearAlerts(id));
   await commit();
 }
@@ -371,17 +374,25 @@ function alertMoment(moment) {
 async function displayMoment(moment, chime = true) {
   const index = slotIndex(moment.tabId);
   if (state.settings.dnd || moment.expiresAt <= Date.now() || !state.moments.some(item => item.id === moment.id && item.expiresAt > Date.now())) return;
-  if (chime && index !== -1) toEngine("chime", { pan: state.slots[index].pan }).catch(() => {});
   // Resolve the destination at delivery time, not from delayed focus-change state.
   // The listening tab may belong to an entirely different Chrome window.
   const window = await chrome.windows.getLastFocused().catch(() => null);
   if (window?.focused) {
     const [tab] = await chrome.tabs.query({ active: true, windowId: window.id }).catch(() => []);
     if (tab) {
+      if (tab.id === moment.tabId) {
+        // Already inside the alert queue: dismiss directly without queueing again.
+        closeMoment(moment.id);
+        await clearAlerts(moment.id);
+        await commit();
+        return;
+      }
+      if (chime && index !== -1) toEngine("chime", { pan: state.slots[index].pan }).catch(() => {});
       const shown = await showCard(tab.id, moment, index);
       if (shown) return;
     }
   }
+  if (chime && !window?.focused && index !== -1) toEngine("chime", { pan: state.slots[index].pan }).catch(() => {});
   await chrome.notifications.create(NOTIFICATION_PREFIX + moment.id, {
     type: "basic",
     iconUrl: "icon.png",

@@ -171,6 +171,27 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment', moment });
     assert.equal(contentMessages.length, beforeDismissedUpdate, 'a duplicate event cannot resurrect a dismissed alert');
 
+    const sourceVisit = { ...moment, id: 'source-visit' };
+    await emit({ type: 'moment', moment: sourceVisit });
+    activeId = 12;
+    await tabActivated();
+    assert(!latest.moments.some(item => item.id === sourceVisit.id), 'visiting the source tab dismisses its alert');
+    assert(contentMessages.some(message => message.cmd === 'moment-clear' && message.id === sourceVisit.id));
+    assert(!contentMessages.some(message => message.cmd === 'moment' && message.id === 12 && message.moment.id === sourceVisit.id), 'never display the alert on its own source tab');
+    activeId = 11;
+    await tabActivated();
+    const afterSourceVisit = contentMessages.length;
+    await emit({ type: 'moment-update', moment: { ...sourceVisit, summary: '늦은 요약' } });
+    await emit({ type: 'moment', moment: sourceVisit });
+    assert.equal(contentMessages.length, afterSourceVisit, 'source-tab dismissal survives updates and duplicate events');
+    activeId = 12;
+    const chimesBeforeSource = engineCommands.filter(item => item.cmd === 'chime').length;
+    await emit({ type: 'moment', moment: { ...moment, id: 'already-at-source' } });
+    assert(!latest.moments.some(item => item.id === 'already-at-source'));
+    assert.equal(engineCommands.filter(item => item.cmd === 'chime').length, chimesBeforeSource, 'no chime when already viewing the source');
+    activeId = 11;
+    await tabActivated();
+
     const outputsBeforeDnd = engineCommands.length;
     const fetchBeforeDnd = globalThis.fetch;
     let dndServerCalls = 0;
@@ -185,8 +206,9 @@ test('frontend selection connects only its active tab and preserves audio contro
       assert.equal(updates[0].inbox.countReady, false, 'show the bell without an unconfirmed count');
       assert.equal(updates.at(-1).inbox.countReady, true);
     } finally { globalThis.fetch = fetchBeforeDnd; }
+    const beforeDndMoment = contentMessages.length;
     await emit({ type: 'moment', moment: { ...moment, id: 'quiet-event' } });
-    assert.equal(contentMessages.length, beforeDismissedUpdate, 'DND stores events without showing cards');
+    assert.equal(contentMessages.length, beforeDndMoment, 'DND stores events without showing cards');
     assert.equal(latest.moments[0].id, 'quiet-event');
     assert.equal(latest.dndInbox.length, 1);
     assert.equal(inboxMessages.at(-1).inbox.enabled, true);
