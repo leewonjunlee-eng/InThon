@@ -7,7 +7,7 @@ test('frontend selection connects only its active tab and preserves audio contro
   let activeId = 11;
   let windowFocused = true;
   const contentMessages = [], notifications = new Map();
-  const engineCommands = [], scannedTabs = [], aiRequests = [];
+  const engineCommands = [], scannedTabs = [], aiRequests = [], popupRequests = [];
   const tabs = [
     { id: 11, windowId: 1, title: '롤 LCK', url: 'https://example.com/lol', audible: true },
     { id: 12, windowId: 1, title: '운영체제 강의', url: 'https://example.org/lecture', audible: true },
@@ -23,8 +23,10 @@ test('frontend selection connects only its active tab and preserves audio contro
     return { ok: true, json: async () => ({ name: "탭 맞춤 알림", summaryFocus: "중요한 안내", rules: [{ text: "중요한 일정이 확정되었을 때", enabled: true }] }) };
   };
   globalThis.chrome = {
+    action: { openPopup: async options => { popupRequests.push(options); } },
     storage: { session: { get: async () => structuredClone(sessionData), set: async value => Object.assign(sessionData, structuredClone(value)) }, local: storage() },
     runtime: {
+      getContexts: async () => [],
       onMessage: { addListener(fn) { handler = fn; } },
       async sendMessage(message) {
         if (message.to === 'ui') latest = structuredClone(message.state);
@@ -39,7 +41,7 @@ test('frontend selection connects only its active tab and preserves audio contro
       onActivated: event, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
       sendMessage: async (id, message) => { contentMessages.push({ id, ...message }); return { ok: true }; },
     },
-    windows: { getLastFocused: async () => ({ focused: windowFocused }), update: async () => {}, onFocusChanged: event },
+    windows: { getLastFocused: async () => ({ id: 1, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
     offscreen: { hasDocument: async () => true },
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
     scripting: { executeScript: async ({ target }) => { scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
@@ -60,8 +62,10 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(engineCommands.length, 0, 'opening the popup must not start capture');
     assert.equal((await send('connect', { index: 0, tabId: 12 })).ok, false, 'cannot capture the wrong tab');
     assert.equal(engineCommands.length, 0);
-    assert.equal((await send('connect', { index: 0, tabId: 11 })).ok, true);
+    assert.equal((await send('connect', { index: 0, tabId: 11, reopenPopup: true })).ok, true);
+    assert.deepEqual(popupRequests, [{ windowId: 1 }], 'reopens a closed popup after successful connection');
     assert.equal(latest.slots[0].tabId, 11);
+    assert.equal(engineCommands.find(item => item.cmd === 'capture').screen, false, 'default connection captures audio only');
     assert.equal(latest.slots[0].role, 'main');
     assert.equal(latest.slots[0].profileId, 'auto');
     await new Promise(resolve => setImmediate(resolve));

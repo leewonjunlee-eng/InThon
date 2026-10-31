@@ -1,3 +1,4 @@
+import { reopenPopupAfterConnect } from "./lib/popup-recovery.js";
 import { createApi } from "./lib/api.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-profiles.js";
 import { scanConnectedTab } from "./lib/page-context.js";
@@ -201,7 +202,7 @@ async function connectTab(tab, index) {
   if (![0, 1].includes(free) || state.slots[free].tabId !== null) throw new Error("슬롯이 모두 찼습니다. 하나를 해제해 주세요.");
   await ensureOffscreen();
   const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
-  await toEngine("capture", { streamId, tabId: tab.id });
+  await toEngine("capture", { streamId, tabId: tab.id, screen: state.settings.screen });
   const topic = await topicFor(tab);
   state.slots[free] = {
     ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: "auto",
@@ -368,6 +369,7 @@ const commands = {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     if (!tab || (tabId !== undefined && tab.id !== tabId)) throw new Error("선택한 탭으로 이동한 뒤 확장 아이콘을 다시 눌러 연결하세요.");
     await connectTab(tab, index);
+    return tab;
   },
   disconnect: ({ index }) => disconnect(index),
   focus: ({ index, tabId }) => focusSlot(tabId === undefined ? index : slotIndex(tabId)),
@@ -475,6 +477,7 @@ async function run(cmd, payload) {
   const result = await commands[cmd](payload);
   await refreshView();
   await applyRoles({ immediate: cmd !== "state" }); // 사용자가 직접 바꾼 건 기다리지 않는다.
+  if (cmd === "connect" && payload.reopenPopup) await reopenPopupAfterConnect(chrome, result);
   return result;
 }
 

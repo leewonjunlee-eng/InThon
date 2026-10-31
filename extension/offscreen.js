@@ -6,10 +6,10 @@ const emit = (event) => chrome.runtime.sendMessage({ to: "bg", cmd: "engine-even
 const engine = new AudioEngine({ api, emit });
 globalThis.audioFocusEngine = engine; // 개발자 도구에서 상태를 확인할 때 쓴다.
 
-async function capture({ streamId, tabId }) {
+async function capture({ streamId, tabId, screen = false }) {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } },
-    video: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId, maxWidth: 640, maxHeight: 360, maxFrameRate: 2 } },
+    video: screen ? { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId, maxWidth: 640, maxHeight: 360, maxFrameRate: 2 } } : false,
   });
   await engine.add(tabId, stream);
 }
