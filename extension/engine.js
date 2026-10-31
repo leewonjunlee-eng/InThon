@@ -46,10 +46,51 @@ export class AudioEngine {
       samples: new Float32Array(analyser.fftSize),
       target: 1, db: -Infinity, profile: null, stopRecognition: null,
       lines: [], digests: [], listenedAt: 0, lastDigestAt: 0, lastJudgeAt: 0, lastJudgedLine: 0, lastMomentAt: 0,
-      detector: null,
+      detector: null, health: { audio:"ready", speech:"off", judge:"idle", screen:"idle", at:Date.now() },
     };
     channel.timer = setInterval(() => this.tick(channel), TICK_MS);
     this.channels.set(id, channel);
+    stream.getAudioTracks().forEach(track => track.addEventListener?.("ended", () => {
+      channel.health.audio = "error"; this.reportHealth(channel);
+    }));
+    this.reportHealth(channel);
+  }
+
+  reportHealth(channel) {
+    if (!channel.health || (this.channels && this.channels.get(channel.id) !== channel)) return;
+    channel.health.at = Date.now();
+    this.emit({ type:"monitor", id:channel.id, health:{ ...channel.health } });
+  }
+  async monitored(channel, kind, work) {
+    if (!channel.health) return work();
+    const token = Symbol();
+    channel.healthTokens ??= {};
+    channel.healthTokens[kind] = token;
+    channel.health[kind] = "pending";
+    const timer = setTimeout(() => {
+      if (channel.healthTokens[kind] !== token) return;
+      channel.health[kind] = "delay"; this.reportHealth(channel);
+    }, 5000);
+    try {
+      const result = await work();
+      if (channel.healthTokens[kind] === token) channel.health[kind] = "ready";
+      return result;
+    } catch (error) {
+      if (channel.healthTokens[kind] === token) {
+        channel.health[kind] = "error";
+        channel.health[kind + "Error"] = kind === "screen" ? "화면 판단 오류 · 소리 조절 가능" : "AI 판단 오류 · 소리 조절 가능";
+      }
+      throw error;
+    } finally { clearTimeout(timer); this.reportHealth(channel); }
+  }
+  retry(id) {
+    const channel = this.channels.get(id);
+    if (!channel || channel.stream.getAudioTracks().some(t => t.readyState === "ended")) throw new Error("소리 연결을 해제한 뒤 다시 연결해주세요.");
+    channel.stopRecognition?.();
+    channel.health.judge = "idle"; channel.health.screen = "idle";
+    channel.lastJudgeAt = 0; channel.lastJudgedLine = 0;
+    if (channel.profile) channel.stopRecognition = this.recognize(channel);
+    this.reportHealth(channel);
   }
 
   remove(id) {
@@ -96,6 +137,7 @@ export class AudioEngine {
   setListen(id, profile, sensitivity = "normal", screen = false) {
     const channel = this.channels.get(id);
     if (!channel) return;
+    if (channel.health) channel.health.alertEnabled = Boolean(profile && !profile.contextOnly);
     const watch = Boolean(profile && !profile.contextOnly && screen);
     if (watch !== Boolean(channel.stopScreen)) {
       channel.stopScreen?.();
@@ -168,7 +210,7 @@ export class AudioEngine {
     const { name, condition } = channel.profile ?? {};
     if (!condition) return;
     try {
-      const { important, summary } = await this.api.vision(canvas.toDataURL("image/jpeg", 0.6), condition);
+      const { important, summary } = await this.monitored(channel, "screen", () => this.api.vision(canvas.toDataURL("image/jpeg", 0.6), condition));
       this.addLine(channel, `(화면 변화: ${summary})`);
       if (!important || channel.profile?.contextOnly || channel.profile?.condition !== condition || this.channels.get(channel.id) !== channel) return;
       const now = Date.now();
@@ -183,8 +225,16 @@ export class AudioEngine {
   }
 
   recognize(channel) {
+    const status = (value, error = "") => {
+      if (!channel.health) return;
+      channel.health.speech = value;
+      if (error) channel.health.speechError = error;
+      this.reportHealth(channel);
+    };
+    status("preparing");
     const track = channel.stream.getAudioTracks()[0];
     if (!SR || !track) {
+      status("error", "음성 인식을 사용할 수 없어요");
       this.emit({ type: "status", id: channel.id, text: "음성 인식을 쓸 수 없어 소리 변화만 감지합니다." });
       return null;
     }
@@ -195,7 +245,10 @@ export class AudioEngine {
     recognition.interimResults = true;
     let committed = 0;
     // 배경 소음이 있으면 문장 끝을 못 찾아 최종 결과가 오래 지연되므로 중간 결과도 나눠서 기록한다.
+    recognition.onstart = () => status("ready");
     recognition.onresult = (event) => {
+      status("ready");
+      if (channel.health) channel.health.lastSpeechAt = Date.now();
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
@@ -211,15 +264,18 @@ export class AudioEngine {
       }
     };
     recognition.onerror = (event) => {
+      if (event.error === "no-speech" || event.error === "aborted") return;
+      status("error", `음성 인식 오류 (${event.error})`);
       if (!FATAL.has(event.error)) return;
       live = false;
       this.emit({ type: "status", id: channel.id, text: `음성 인식 오류(${event.error}). 소리 변화만 감지합니다.` });
     };
     // 연속 인식도 침묵이나 네트워크 문제로 끝날 수 있어 다시 시작한다.
     recognition.onend = () => {
-      if (live && track.readyState === "live") setTimeout(() => live && recognition.start(track), 200);
+      if (live && track.readyState === "live") setTimeout(() => { if (live) { try { recognition.start(track); } catch { status("error", "음성 인식 재시작 실패"); } } }, 200);
     };
-    recognition.start(track);
+    try { recognition.start(track); }
+    catch (error) { live = false; status("error", `음성 인식 시작 실패 (${error.name})`); }
     return () => {
       live = false;
       recognition.abort();
@@ -248,6 +304,7 @@ export class AudioEngine {
   }
 
   tick(channel) {
+    if (channel.health && Date.now() - channel.health.at >= 5000) this.reportHealth(channel);
     channel.analyser.getFloatTimeDomainData(channel.samples);
     const power = channel.samples.reduce((sum, value) => sum + value * value, 0) / channel.samples.length;
     channel.db = 10 * Math.log10(power);
@@ -311,7 +368,7 @@ export class AudioEngine {
 
     if (!confident && hasSpeech) {
       try {
-        const { important } = await this.api.judge(text, kind === "surge" ? condition + SURGE_RULE : condition);
+        const { important } = await this.monitored(channel, "judge", () => this.api.judge(text, kind === "surge" ? condition + SURGE_RULE : condition));
         if (!important || !current()) return;
         confident = true;
       } catch {

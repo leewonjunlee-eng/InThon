@@ -36,7 +36,8 @@
       ],
       "js": [
         "inbox.js",
-        "content.js"
+        "content.js",
+        "status-bar.js"
       ],
       "run_at": "document_idle"
     }

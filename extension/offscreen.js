@@ -16,6 +16,7 @@ async function capture({ streamId, tabId, screen = false }) {
 
 const handlers = {
   ping: () => {},
+  retry: ({ tabId }) => engine.retry(tabId),
   capture,
   remove: ({ tabId }) => engine.remove(tabId),
   output: ({ tabId, gain, pan }) => engine.setOutput(tabId, { gain, pan }),

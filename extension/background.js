@@ -1,3 +1,4 @@
+import { monitorSnapshot } from "./lib/monitor.js";
 import { createTutorialShortcutRouter } from "./lib/tutorial-shortcuts.js";
 import { createFocusSuggestion } from "./lib/focus-suggestion.js";
 import { removeSlot } from "./lib/slots.js";
@@ -63,7 +64,7 @@ const focusSuggestion = createFocusSuggestion({
     const message = { to: "content", cmd: "focus-suggestion", tabId: candidate.tabId, title: candidate.title };
     try { await chrome.tabs.sendMessage(candidate.tabId, message); }
     catch {
-      await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["inbox.js", "content.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["inbox.js", "content.js", "status-bar.js"] });
       if (focusCandidate()?.tabId === candidate.tabId) await chrome.tabs.sendMessage(candidate.tabId, message);
     }
   },
@@ -115,6 +116,16 @@ async function restoreState() {
   return state;
 }
 
+let monitorSignature = "";
+async function syncMonitor() {
+  const snapshot = monitorSnapshot(state.slots);
+  const signature = JSON.stringify(snapshot);
+  if (signature === monitorSignature) return;
+  monitorSignature = signature;
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.filter(t => /^https?:/.test(t.url || "")).map(t =>
+    Promise.resolve().then(() => chrome.tabs.sendMessage(t.id, { to:"monitor", snapshot })).catch(() => {})));
+}
 let inboxSignature = "";
 const inboxState = () => ({ enabled: state.settings.dnd, items: state.dndInbox, countReady: true });
 async function syncInbox(force = false, inbox = inboxState()) {
@@ -128,7 +139,7 @@ async function syncInbox(force = false, inbox = inboxState()) {
     catch {
       if (!inbox.enabled || (!tab.active && tab.id !== state.view.tabId)) return;
       try {
-        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inbox.js", "content.js"] });
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inbox.js", "content.js", "status-bar.js"] });
         await chrome.tabs.sendMessage(tab.id, message);
       } catch { /* Chrome-protected pages cannot host the inbox. */ }
     }
@@ -138,6 +149,7 @@ async function commit() {
   const { settings, rules, customProfiles, seenGuide, ...session } = state;
   await chrome.storage.session.set({ session });
   await syncInbox();
+  await syncMonitor();
   await chrome.storage.local.set({ saved: { settings, rules, customProfiles, seenGuide } });
   const available = (await chrome.tabs.query({})).filter(tab => /^https?:/.test(tab.url || ""));
   const audible = available.filter(tab => tab.audible);
@@ -261,6 +273,7 @@ async function connectTab(tab, index) {
   const topic = await topicFor(tab);
   state.slots[free] = {
     ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: "auto", pageKey: pageKey(tab.url),
+    monitor: { at:Date.now(), audio:"ready", speech:"preparing", judge:"idle", screen:"idle" },
   };
   if (!state.slots.some(slot => slot.tabId !== null && slot.role === "main")) {
     state.manual = free;
@@ -415,7 +428,7 @@ async function showCard(tabId, moment, index) {
   } catch {
     // 설치 전에 열린 탭에는 콘텐츠 스크립트가 없다.
     try {
-      await chrome.scripting.executeScript({ target: { tabId }, files: ["inbox.js", "content.js"] });
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["inbox.js", "content.js", "status-bar.js"] });
       await chrome.tabs.sendMessage(tabId, message);
       return true;
     } catch {
@@ -425,6 +438,11 @@ async function showCard(tabId, moment, index) {
 }
 
 async function onEngineEvent(event) {
+  if (event.type === "monitor") {
+    const slot = state.slots.find(s => s.tabId === event.id);
+    if (slot) { slot.monitor = event.health; await chrome.storage.session.set({ session: { ...state } }); await syncMonitor(); }
+    return;
+  }
   if (event.type === "moment") {
     if (state.closedAlertIds.includes(event.moment.id)) return;
     const existing = state.moments.find(moment => moment.id === event.moment.id);
@@ -471,6 +489,12 @@ async function createProfile(request) {
 }
 
 const commands = {
+  "retry-monitor": async ({ tabId }) => {
+    const index = slotIndex(tabId);
+    if (index < 0) throw new Error("연결이 종료된 탭입니다.");
+    await toEngine("retry", { tabId });
+    if (state.slots[index].alertSetup?.status === "error") void generateAlerts(index);
+  },
   "clear-dnd-inbox": async () => {
     const ids = new Set(state.dndInbox.map(item => item.id));
     state.dndInbox = [];
@@ -632,6 +656,10 @@ async function run(cmd, payload) {
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message.to !== "bg") return false;
+  if (message.cmd === "get-monitor") {
+    load().then(() => respond({ ok:true, result:monitorSnapshot(state.slots) }));
+    return true;
+  }
   if (message.cmd === "get-dnd-inbox") {
     load().then(() => respond({ ok: true, result: inboxState() }));
     return true;
