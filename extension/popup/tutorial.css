@@ -108,3 +108,15 @@ html.tutorial-active #ab-mock .onboarding::backdrop{background:#f5f4fa;backdrop-
 #ab-mock .tour-empty-card .sub{margin:0}
 #ab-mock .tour-content .tour-empty-card .remove-slot{display:grid;place-items:center;min-height:30px;padding:4px}
 #ab-mock .tour-content .tour-empty-card .tab-status{width:auto;min-width:90px}
+
+/* Explain the purpose before teaching the controls; keep the existing 460×600 shell. */
+#ab-mock .tour-description strong{color:var(--ink);font-weight:600}
+#ab-mock .tour-preset-demo{display:grid;gap:10px}
+#ab-mock .tour-preset-demo select{font-size:12px;min-height:36px;padding:6px 10px}
+#ab-mock .tour-example-arrow{text-align:center;font-size:11px;color:var(--muted)}
+#ab-mock .tour-example-notification{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);box-shadow:0 4px 12px #24243208;word-break:keep-all}
+#ab-mock .tour-example-brand{display:flex;align-items:center;gap:5px;font-size:12px}
+#ab-mock .tour-example-brand img{object-fit:contain}
+#ab-mock .tour-example-brand .sub{margin-left:auto;font-size:10px;color:var(--brand)}
+#ab-mock .tour-example-notification h3{margin:8px 0 4px;font-size:13px}
+#ab-mock .tour-example-notification p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
