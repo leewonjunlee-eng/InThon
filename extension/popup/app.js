@@ -69,7 +69,7 @@ function renderSlot(slot, i) {
   const selected = Boolean(selections[i]);
   const status = connected && main ? "집중 탭" : connected || selected ? "대기 탭" : "비어 있음";
   const kind = connected && main ? "focused" : connected || selected ? "standby" : "vacant";
-  const symbol = kind === "standby" ? `<img src="${transport.isExtension ? "../icons/pause.svg" : "/extension/icons/pause.svg"}" width="18" height="18" alt="">` : kind === "focused" ? "●" : "○";
+  const symbol = kind === "focused" ? "●" : kind === "standby" ? "Ⅱ" : "○";
   let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="${label(i)} 탭 소리"><div class="slot-heading"><h3 class="tab-status ${kind}"><span class="status-icon" aria-hidden="true">${symbol}</span>${status}</h3>${!connected && selected ? '<span class="sub">연결 전</span>' : ''}</div>`;
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];
@@ -118,7 +118,7 @@ function renderEntrust() {
   html += `<label class="stack"><span>감지 민감도</span><select data-setting-select="sensitivity">${[["low", "낮음 (큰 순간만)"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
   html += `<label class="stack"><span>메인 음량 <output id="setting-focusVol">${settings.focusVol}%</output></span><input type="range" min="0" max="100" value="${settings.focusVol}" data-setting-range="focusVol" aria-label="메인 음량"></label>`;
   html += `<label class="stack"><span>대기 음량 <output id="setting-bgVol">${settings.bgVol}%</output></span><input type="range" min="0" max="100" value="${settings.bgVol}" data-setting-range="bgVol" aria-label="대기 음량"></label>`;
-  return html + `<div class="notice">단축키: Control+Shift+K 탭 연결, Control+Shift+→ 다른 소리에 집중, Control+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
+  return html + `<div class="notice">단축키: Alt+Shift+K 탭 연결, Alt+Shift+→ 다른 소리에 집중, Alt+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
 }
 
 function renderProfiles() {

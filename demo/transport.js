@@ -26,7 +26,6 @@ export function createPreviewTransport() {
   function onEvent(event) {
     if (event.type === "status") state.status = event.text;
     if (event.type === "moment") state.moments = [event.moment, ...state.moments].slice(0, 30);
-    if (event.type === "moment-update") state.moments = state.moments.map(item => item.id === event.moment.id ? event.moment : item);
     if (event.type === "transcript") state.transcript = [...state.transcript, event].slice(-40);
     if (event.type === "return-summary") {
       const slot = state.slots.findIndex(item => item.tabId === event.id);
@@ -97,7 +96,7 @@ export function createPreviewTransport() {
           if (slot?.tabId == null) break;
           state.snapshot = snapshot();
           if (cmd === "peek") state.peek = index;
-          else { state.manual = index; state.peek = null; state.slots.forEach(item => { item.pinned = false; }); slot.muted = false; }
+          else { state.manual = index; state.peek = null; }
           break;
         case "switch": {
           const current = state.manual ?? state.slots.findIndex(item => item.role === "main");

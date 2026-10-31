@@ -169,21 +169,14 @@ async function disconnect(index) {
 
 const snapshotOf = () => ({
   manual: state.manual,
-  slots: state.slots.map(({ tabId, pan, muted, pinned, volumes }) => ({ tabId, pan, muted, pinned, volumes: { ...volumes } })),
+  slots: state.slots.map(({ tabId, pan, muted, volumes }) => ({ tabId, pan, muted, volumes: { ...volumes } })),
 });
 
-async function focusSlot(index) {
-  const slot = state.slots[index];
-  if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
-  await chrome.tabs.get(slot.tabId);
+function focusSlot(index) {
+  if (state.slots[index].tabId === null) return;
   state.snapshot = snapshotOf();
   state.manual = index;
   state.peek = null;
-  state.slots.forEach(item => { item.pinned = false; });
-  slot.muted = false;
-  await applyRoles({ immediate: true });
-  const target = await chrome.tabs.update(slot.tabId, { active: true });
-  await chrome.windows.update(target.windowId, { focused: true });
 }
 
 function peekSlot(index) {
@@ -200,7 +193,7 @@ function restore() {
   state.manual = previous.manual;
   state.slots.forEach((slot, i) => {
     const old = previous.slots[i];
-    if (old.tabId === slot.tabId) Object.assign(slot, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
+    if (old.tabId === slot.tabId) Object.assign(slot, { pan: old.pan, muted: old.muted, volumes: old.volumes });
   });
 }
 
@@ -220,15 +213,12 @@ async function alertMoment(moment) {
     const shown = await showCard(tab.id, moment, index);
     if (shown) return;
   }
-  const existing = await chrome.notifications.getAll();
-  await Promise.all(Object.keys(existing).filter(id => id.startsWith(NOTIFICATION_PREFIX)).map(id => chrome.notifications.clear(id)));
-  await chrome.notifications.create(NOTIFICATION_PREFIX + moment.id, {
+  chrome.notifications.create(NOTIFICATION_PREFIX + moment.id, {
     type: "basic",
     iconUrl: "icon.png",
-    title: `Catch Sound · ${moment.topic}`,
+    title: `소리 ${"AB"[index]} · ${moment.topic}`,
     message: moment.summary,
-    buttons: [{ title: "여기에 집중" }, { title: "나중에" }],
-    requireInteraction: true,
+    buttons: [{ title: "잠깐 듣기" }, { title: "여기에 집중" }],
     priority: 2,
   });
 }
@@ -254,16 +244,6 @@ async function onEngineEvent(event) {
   if (event.type === "moment") {
     state.moments = [event.moment, ...state.moments].slice(0, 30);
     await alertMoment(event.moment);
-  } else if (event.type === "moment-update") {
-    const index = state.moments.findIndex(item => item.id === event.moment.id);
-    if (index < 0) return;
-    state.moments[index] = event.moment;
-    // Update existing cards only: dismissed or replaced alerts must not reappear.
-    const tabs = await chrome.tabs.query({});
-    await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, {
-      to: "content", cmd: "moment-update", moment: event.moment,
-    }).catch(() => {})));
-    await chrome.notifications.update(NOTIFICATION_PREFIX + event.moment.id, { message: event.moment.summary }).catch(() => {});
   } else if (event.type === "return-summary") {
     const index = slotIndex(event.id);
     if (index !== -1) state.returnSummary = { ...event, slot: index, title: state.slots[index].title };
@@ -292,7 +272,7 @@ const commands = {
     await connectTab(tab, index);
   },
   disconnect: ({ index }) => disconnect(index),
-  focus: ({ index, tabId }) => focusSlot(tabId === undefined ? index : slotIndex(tabId)),
+  focus: ({ index }) => focusSlot(index),
   peek: ({ index }) => peekSlot(index),
   switch: () => focusSlot(connectedFocusTarget()),
   restore: () => restore(),
@@ -426,7 +406,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   await load();
   try {
     if (command === "connect-tab" && tab) await connectTab(tab);
-    if (command === "switch-focus") await focusSlot(connectedFocusTarget());
+    if (command === "switch-focus") focusSlot(connectedFocusTarget());
     if (command === "restore") restore();
   } catch (error) {
     state.status = error.message;
@@ -440,9 +420,7 @@ chrome.notifications.onButtonClicked.addListener(async (id, button) => {
   await load();
   const moment = state.moments.find((item) => NOTIFICATION_PREFIX + item.id === id);
   const index = moment ? slotIndex(moment.tabId) : -1;
-  if (button === 0 && index !== -1) {
-    try { await run("focus", { index }); }
-    catch (error) { state.status = error.message; await commit(); return; }
-  }
-  await chrome.notifications.clear(id);
+  if (index === -1) return;
+  await run(button === 0 ? "peek" : "focus", { index });
+  chrome.notifications.clear(id);
 });
