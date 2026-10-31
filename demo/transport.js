@@ -29,6 +29,15 @@ export function createPreviewTransport() {
   });
   const generateAlerts = (index, options) => autoProfiles.generate(index, options).catch(error => { state.status = error.message; publish(); });
   const snapshot = () => ({ manual: state.manual, slots: structuredClone(state.slots) });
+  function focus(index) {
+    const slot = state.slots[index];
+    if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
+    state.snapshot = snapshot();
+    state.manual = index;
+    state.peek = null;
+    state.slots.forEach(item => { item.pinned = false; });
+    slot.muted = false;
+  }
   function onEvent(event) {
     if (event.type === "status") state.status = event.text;
     if (event.type === "moment") state.moments = [event.moment, ...state.moments].slice(0, 30);
@@ -38,6 +47,7 @@ export function createPreviewTransport() {
       state.transcript = [...state.transcript, event].slice(-40);
       void Promise.resolve(autoProfiles.observe(index)).catch(() => {});
     }
+    if (event.type === "moment-update") state.moments = state.moments.map(item => item.id === event.moment.id ? event.moment : item);
     if (event.type === "return-summary") {
       const slot = state.slots.findIndex(item => item.tabId === event.id);
       if (slot >= 0) state.returnSummary = { ...event, slot };
@@ -105,15 +115,14 @@ export function createPreviewTransport() {
         case "pin": slot.pinned = !slot.pinned; break;
         case "focus": case "peek":
           if (slot?.tabId == null) break;
-          state.snapshot = snapshot();
-          if (cmd === "peek") state.peek = index;
-          else { state.manual = index; state.peek = null; }
+          if (cmd === "peek") { state.snapshot = snapshot(); state.peek = index; }
+          else focus(index);
           break;
         case "switch": {
           const current = state.manual ?? state.slots.findIndex(item => item.role === "main");
           const next = current === 0 ? 1 : 0;
           if (state.slots[next].tabId !== null) {
-            state.snapshot = snapshot(); state.manual = next; state.peek = null;
+            focus(next);
           }
           break;
         }
@@ -123,7 +132,7 @@ export function createPreviewTransport() {
             state.manual = previous.manual;
             state.slots.forEach((item, i) => {
               const old = previous.slots[i];
-              if (old.tabId === item.tabId) Object.assign(item, { pan: old.pan, muted: old.muted, volumes: old.volumes });
+              if (old.tabId === item.tabId) Object.assign(item, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
             });
           }
           state.snapshot = null; state.peek = null;

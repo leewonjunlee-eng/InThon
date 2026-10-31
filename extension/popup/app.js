@@ -21,7 +21,7 @@ const escapeHTML = (value) =>
         c
       ],
   );
-const label = (i) => ["A", "B"][i];
+const label = (i) => `${i + 1}번`;
 const ROLE = { main: "메인", standby: "대기" };
 
 function button(text, action, cls = "", disabled = false, extra = "") {
@@ -48,13 +48,13 @@ function renderEmptySlot(i) {
   const source = selections[i];
   if (!source) return `<p class="sub">이 자리에 들을 소리를 넣어주세요.</p>${button("＋ 연결할 탭 고르기", `pick:${i}`, "full")}`;
   const current = !transport.isExtension || source.id === state.view.tabId;
-  return `<div class="source"><strong>${escapeHTML(source.title)}</strong><span class="sub">${escapeHTML(source.host)}</span></div><div class="two">${button("다른 탭 선택", `pick:${i}`)}${button(current ? `${label(i)} 연결하기` : "선택한 탭으로 이동 ↗", current ? `connect:${i}` : `goto:${source.id}`, "solid", connecting.has(i))}</div>${button("선택 지우기", `clear:${i}`, "quiet")}${!current ? '<p class="sub">선택한 탭으로 이동한 뒤 확장 아이콘을 다시 눌러 연결하세요.</p>' : ''}`;
+  return `<div class="source"><strong>${escapeHTML(source.title)}</strong><span class="sub">${escapeHTML(source.host)}</span></div><div class="two">${button("다른 탭 선택", `pick:${i}`)}${button(current ? "연결하기" : "선택한 탭으로 이동 ↗", current ? `connect:${i}` : `goto:${source.id}`, "solid", connecting.has(i))}</div>${button("선택 지우기", `clear:${i}`, "quiet")}${!current ? '<p class="sub">선택한 탭으로 이동한 뒤 확장 아이콘을 다시 눌러 연결하세요.</p>' : ''}`;
 }
 
 function renderPicker() {
   const i = picker;
   const sources = state.available ?? state.audible;
-  let html = button("← 슬롯으로 돌아가기", "back", "quiet") + `<div class="row"><h3>${label(i)}에 연결할 소리 선택</h3><span class="letter">${label(i)}</span></div><p class="sub">탭을 누르면 바로 슬롯에 선택됩니다.</p><div class="picker">`;
+  let html = button("← 슬롯으로 돌아가기", "back", "quiet") + `<div class="row"><h3>연결할 탭 선택</h3></div><p class="sub">탭을 누르면 바로 슬롯에 선택됩니다.</p><div class="picker">`;
   for (const source of sources) {
     const used = state.slots[1-i].tabId === source.id || selections[1-i]?.id === source.id;
     html += button(`<span>${escapeHTML(source.title)}<span class="sub">${escapeHTML(source.host)}${source.audible ? " · 재생 중" : ""}</span></span>${used ? '<span class="sub">다른 슬롯에서 사용 중</span>' : ""}`, `select:${source.id}`, "choice", used);
@@ -67,7 +67,11 @@ function renderSlot(slot, i) {
   const connected = slot.tabId !== null;
   const main = slot.role === "main";
   const focused = (state.peek ?? state.manual) === i;
-  let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="소리 ${label(i)}"><div class="row"><div class="row"><span class="letter">${label(i)}</span><h3>소리 ${label(i)}</h3></div><span class="badge ${main ? "focus-badge" : ""}">${connected ? `${ROLE[slot.role] ?? "연결됨"}${slot.pinned ? " · 고정" : ""}` : selections[i] ? "선택됨 · 연결 전" : "비어 있음"}</span></div>`;
+  const selected = Boolean(selections[i]);
+  const status = connected && main ? "집중 탭" : connected || selected ? "대기 탭" : "비어 있음";
+  const kind = connected && main ? "focused" : connected || selected ? "standby" : "vacant";
+  const symbol = kind === "standby" ? `<img src="${transport.isExtension ? "../icons/pause.svg" : "/extension/icons/pause.svg"}" width="18" height="18" alt="">` : kind === "focused" ? "●" : "○";
+  let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="${label(i)} 탭 소리"><div class="slot-heading"><h3 class="tab-status ${kind}"><span class="status-icon" aria-hidden="true">${symbol}</span>${status}</h3>${!connected && selected ? '<span class="sub">연결 전</span>' : ''}</div>`;
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
@@ -144,7 +148,7 @@ function renderEntrust() {
   html += `<label class="stack"><span>감지 민감도</span><select data-setting-select="sensitivity">${[["low", "낮음 (큰 순간만)"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
   html += `<label class="stack"><span>메인 음량 <output id="setting-focusVol">${settings.focusVol}%</output></span><input type="range" min="0" max="100" value="${settings.focusVol}" data-setting-range="focusVol" aria-label="메인 음량"></label>`;
   html += `<label class="stack"><span>대기 음량 <output id="setting-bgVol">${settings.bgVol}%</output></span><input type="range" min="0" max="100" value="${settings.bgVol}" data-setting-range="bgVol" aria-label="대기 음량"></label>`;
-  return html + `<div class="notice">단축키: Alt+Shift+K 탭 연결, Alt+Shift+→ 다른 소리에 집중, Alt+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
+  return html + `<div class="notice">단축키: Control+Shift+K 탭 연결, Control+Shift+→ 다른 소리에 집중, Control+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
 }
 
 function renderProfiles() {

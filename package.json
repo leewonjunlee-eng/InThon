@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/logic.test.js tests/integration.test.js tests/auto-profiles.test.js tests/engine.test.js tests/popup.test.js tests/page-context.test.js",
+    "test": "node --test tests/*.test.js",
     "server": "python3 server/server.py",
     "build": "python3 -c \"import shutil; shutil.make_archive('dist/catch-sound-extension', 'zip', 'extension')\"",
     "preview": "python3 server/server.py --allow-no-ai --port 8788"

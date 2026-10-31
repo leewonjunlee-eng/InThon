@@ -1,6 +1,8 @@
 // 소리 처리와 "대신 듣기" 엔진. 입력은 MediaStream이라 확장과 웹 체험 페이지가 함께 쓴다.
 import { SURGE_DB, SurgeDetector, clock, correctTranscript, findKeyword, frameDiff, linesToText } from "./lib/logic.js";
 
+import { transcriptExcerpt, normalizeSummary } from "./lib/summary.js";
+
 const SR = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
 const TICK_MS = 250;
 const KEEP_MS = 30 * 60 * 1000;
@@ -286,7 +288,7 @@ export class AudioEngine {
     channel.lastMomentAt = now;
     channel.lastMomentKind = kind;
     const { condition, summaryFocus, name } = channel.profile;
-    const current = () => this.channels.get(channel.id) === channel && !channel.profile?.contextOnly && channel.profile?.condition === condition;
+    const current = () => this.channels.get(channel.id) === channel && channel.profile && !channel.profile.contextOnly && channel.profile.condition === condition;
     const lines = this.recent(channel);
     const text = linesToText(lines);
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
@@ -311,24 +313,27 @@ export class AudioEngine {
     if (kind === "judge" && !confident) return;
     if (!hasSpeech) lines.length = 0;
 
-    let summary = "큰 순간일 수 있어요. 자막이 없어 내용을 확인하지 못했습니다.";
-    let evidence = lines.slice(-3).map((line) => line.text);
-    if (hasSpeech) {
-      try {
-        const result = await this.api.summarize(text, summaryFocus);
-        summary = result.summary || summary;
-        if (result.evidence.length) evidence = result.evidence.map(String);
-      } catch {
-        summary = `요약 서버에 연결하지 못했습니다. 최근 자막: ${lines.at(-1).text}`;
-      }
+    const fallback = transcriptExcerpt(lines);
+    const moment = {
+      id: `${channel.id}-${now}`, tabId: channel.id, topic: name, time: clock(now), kind, keyword, confident,
+      ...fallback, summaryStatus: hasSpeech ? "loading" : "no-transcript",
+    };
+    // Show the event immediately; enrich this same alert when the model finishes.
+    if (!current()) {
+      if (channel.lastMomentAt === now) channel.lastMomentAt = 0;
+      return;
     }
-    if (!current()) return;
-    this.emit({
-      type: "moment",
-      moment: {
-        id: `${channel.id}-${now}`, tabId: channel.id, topic: name, time: clock(now), kind, keyword, confident, summary, evidence,
-      },
-    });
+    await this.emit({ type: "moment", moment: { ...moment } });
+    if (!hasSpeech) return;
+    try {
+      const result = normalizeSummary(await this.api.summarize(text, summaryFocus), lines);
+      Object.assign(moment, result, { summaryStatus: "ai" });
+    } catch {
+      Object.assign(moment, fallback, { summaryStatus: "fallback" });
+    }
+    // This only enriches the already-emitted historical event. Content and
+    // notification update handlers never reopen a dismissed/replaced alert.
+    await this.emit({ type: "moment-update", moment });
   }
 
   async digest(channel, now) {
