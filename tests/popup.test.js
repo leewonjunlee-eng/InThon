@@ -40,6 +40,20 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     await new Promise(resolve => setImmediate(resolve));
     assert(sent.some(message => message.cmd === 'set-profile' && message.index === 0 && message.profileId === 'custom-game'));
     assert(main.innerHTML.includes("알림 조건 확인·수정"));
+    globalThis.document.activeElement = { tagName: 'SELECT', dataset: { profile: '0' } };
+    const publishProfile = (profileId, setup = slot.alertSetup) => subscriber({ to: 'ui', state: { ...structuredClone(state), slots: [{ ...structuredClone(slot), profileId, alertSetup: structuredClone(setup) }, emptySlot()] } });
+    publishProfile('');
+    assert(!main.innerHTML.includes('알림 조건 확인·수정'), 'off hides the summary while the dropdown remains focused');
+    publishProfile('auto', { status: 'generating', phase: 'scanning' });
+    assert(main.innerHTML.includes('알림 조건 확인·수정'), 'auto immediately restores the summary');
+    assert(main.innerHTML.includes('읽는 중'));
+    publishProfile('auto');
+    assert(main.innerHTML.includes('판매 알림'), 'generation result updates without blurring the dropdown');
+    publishProfile('custom-game');
+    assert(!main.innerHTML.includes('알림 조건 확인·수정'), 'custom presets do not show the automatic condition card');
+    publishProfile('auto');
+    globalThis.document.activeElement = null;
+
     await click("edit-alert:0");
     assert(main.innerHTML.includes("가격이 공개되면"));
     assert(main.innerHTML.startsWith('<div class="settings-top">'));

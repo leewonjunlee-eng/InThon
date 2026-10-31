@@ -397,6 +397,9 @@ root.addEventListener("change", (event) => {
   if (dataset.topic !== undefined) act("set-topic", { host: dataset.topic, topic: value || null });
 });
 transport.subscribe((nextState) => {
+  const alertContentChanged = state && nextState.slots.some((slot, i) =>
+    slot.profileId !== state.slots[i]?.profileId ||
+    JSON.stringify(slot.alertSetup) !== JSON.stringify(state.slots[i]?.alertSetup));
   state = nextState;
   selections = Array.from({ length: state.slots.length }, (_, i) => selections[i] ?? null);
   const availableIds = new Set(state.available?.map(source => source.id));
@@ -419,6 +422,10 @@ transport.subscribe((nextState) => {
     if (slot.tabId !== null) selections[i] = { id: slot.tabId, title: slot.title, host: slot.host };
   });
   const editing = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
-  if ((!editing || removedSelection || closedEditor) && !confirmDelete) render();
+  if ((!editing || removedSelection || closedEditor || (alertContentChanged && !alertEditor && tab === "sound" && picker === null)) && !confirmDelete) {
+    const focusedProfile = document.activeElement?.dataset?.profile;
+    render();
+    if (focusedProfile !== undefined) main.querySelector(`[data-profile="${Number(focusedProfile)}"]`)?.focus();
+  }
 });
 act("state");
