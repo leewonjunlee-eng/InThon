@@ -1,5 +1,5 @@
 export function savePreset(existing, profile) {
-  if (!profile || typeof profile.id !== 'string' || !/^custom-[\w-]+$/.test(profile.id)) throw new Error('기본 프리셋은 복사해서 수정해 주세요.');
+  if (!profile || typeof profile.id !== 'string' || !/^custom-[\w-]+$/.test(profile.id)) throw new Error('추천 프리셋은 복사해서 수정해 주세요.');
   const text = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
   const name = text(profile.name, 60), condition = text(profile.condition, 2000);
   if (!name || !condition) throw new Error('프리셋 이름과 알림 조건을 입력해 주세요.');
