@@ -117,14 +117,24 @@ async function restoreState() {
 }
 
 let monitorSignature = "";
-async function syncMonitor() {
+async function syncMonitor(force = false) {
   const snapshot = monitorSnapshot(state.slots);
   const signature = JSON.stringify(snapshot);
-  if (signature === monitorSignature) return;
+  if (!force && signature === monitorSignature) return;
   monitorSignature = signature;
   const tabs = await chrome.tabs.query({});
-  await Promise.all(tabs.filter(t => /^https?:/.test(t.url || "")).map(t =>
-    Promise.resolve().then(() => chrome.tabs.sendMessage(t.id, { to:"monitor", snapshot })).catch(() => {})));
+  await Promise.all(tabs.filter(t => /^https?:/.test(t.url || "")).map(async tab => {
+    const message = { to:"monitor", snapshot };
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, message);
+      if (response?.monitorReady || !snapshot.connected) return;
+    } catch { if (!snapshot.connected) return; }
+    // Tabs opened before extension installation may have no status script yet.
+    try {
+      await chrome.scripting.executeScript({ target:{ tabId:tab.id }, files:["status-bar.js"] });
+      await chrome.tabs.sendMessage(tab.id, message);
+    } catch { /* Chrome-protected pages do not allow content scripts. */ }
+  }));
 }
 let inboxSignature = "";
 const inboxState = () => ({ enabled: state.settings.dnd, items: state.dndInbox, countReady: true });
@@ -685,6 +695,7 @@ async function onViewChanged() {
   await applyRoles();
   await moveOpenAlerts();
   await syncInbox(true);
+  await syncMonitor(true);
 }
 
 chrome.tabs.onActivated.addListener(onViewChanged);

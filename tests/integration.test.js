@@ -13,6 +13,7 @@ test('frontend selection connects only its active tab and preserves audio contro
   const inboxMessages = [];
   const contentMessages = [], notifications = new Map();
   const engineCommands = [], scannedTabs = [], aiRequests = [], popupRequests = [];
+  const monitorTabs = new Set();
   const tabs = [
     { id: 11, windowId: 1, title: '롤 LCK', url: 'https://example.com/lol', audible: true },
     { id: 12, windowId: 1, title: '운영체제 강의', url: 'https://example.org/lecture', audible: true },
@@ -45,12 +46,12 @@ test('frontend selection connects only its active tab and preserves audio contro
       query: async query => query.active ? tabs.filter(tab => tab.id === activeId && (query.windowId === undefined || tab.windowId === query.windowId)) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
       onActivated: { addListener(fn) { tabActivated = fn; } }, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
-      sendMessage: async (id, message) => { if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return { ok: true }; },
+      sendMessage: async (id, message) => { if (message.to === 'monitor') return { monitorReady: monitorTabs.has(id) }; if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return { ok: true }; },
     },
     windows: { getLastFocused: async () => ({ id: focusedWindowId, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
     offscreen: { hasDocument: async () => true },
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
-    scripting: { executeScript: async ({ target }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
+    scripting: { executeScript: async ({ target, files }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); if (files?.includes("status-bar.js")) { monitorTabs.add(target.tabId); return []; } scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
     commands: { onCommand: { addListener(fn) { shortcut = fn; } } },
     notifications: { onClosed: { addListener(fn) { notificationClosed = fn; } }, onButtonClicked: { addListener(fn) { notificationClick = fn; } },
       getAll: async () => Object.fromEntries(notifications),
@@ -78,6 +79,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(latest.slots[0].alertSetup.status, 'ready');
     assert.deepEqual(scannedTabs, [11]);
+    assert(monitorTabs.has(12), "status bar reaches an already-open tab without capturing its audio");
     assert.equal(aiRequests[0].description, "연결한 탭의 설명");
     assert(engineCommands.some(item => item.cmd === 'listen' && item.profile?.contextOnly), 'the main tab collects context without alerts');
     assert.equal((await send('save-alerts', { index: 0, tabId: 999, profile: {} })).ok, false);
