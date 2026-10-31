@@ -341,3 +341,10 @@ html.extension-popup { width: 460px; height: 600px; }
 #ab-mock .profile-detail dl { display: grid; gap: 4px; margin: 12px 0 0; font-size: 12px; }
 #ab-mock .profile-detail dt { font-weight: 600; }
 #ab-mock .profile-detail dd { margin: 0 0 8px; color: var(--muted); overflow-wrap: anywhere; }
+
+/* Slot identity is expressed by its current listening state. */
+#ab-mock .slot-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#ab-mock .tab-status { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 6px 10px; background: var(--soft); color: var(--muted); }
+#ab-mock .tab-status.focused { background: var(--tint); color: var(--brand); }
+#ab-mock .tab-status.standby { color: var(--ink); }
+#ab-mock .status-icon { display: inline-grid; place-items: center; width: 18px; height: 18px; font-size: 15px; font-weight: 600; }
