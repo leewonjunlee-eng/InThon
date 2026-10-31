@@ -87,6 +87,25 @@ test("a scope the user requested or edited is not widened by the safety net", as
   assert(!alertProfileFor(g.slots[0]).watchPhrases.includes("잠시 후"));
 });
 
+test("a new page regenerates conditions and restarts refinement, but keeps user conditions", async () => {
+  const requests = [];
+  const f = fixture(async value => { requests.push(value); return profile(); });
+  await f.controller.generate(0, { request: "가격만" });
+  f.slots[0].alertSetup.refinements = 3;
+  f.slots[0].alertSetup.startedAt = 1;
+  await f.controller.navigated(0);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].request, "가격만", "the request is about the user, not the page");
+  assert.equal(f.slots[0].alertSetup.refinements, 0);
+  assert(f.slots[0].alertSetup.startedAt > 1);
+  f.controller.save(0, profile("내 조건"));
+  await f.controller.navigated(0);
+  assert.equal(requests.length, 2);
+  f.slots[0].profileId = null;
+  await f.controller.navigated(0);
+  assert.equal(requests.length, 2);
+});
+
 test("late generation cannot overwrite edits, a replacement connection, or a disabled profile", async () => {
   for (const change of [
     f => f.controller.save(0, profile("내 수정")),

@@ -84,11 +84,19 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
     return generate(index, { refine: true });
   }
 
+  // A new page starts over; conditions the user wrote are never replaced.
+  function navigated(index) {
+    const slot = slots()[index];
+    if (slot?.profileId !== "auto" || slot.alertSetup?.edited) return;
+    if (slot.alertSetup) slot.alertSetup = { ...slot.alertSetup, startedAt: Date.now(), refinements: 0, refined: false };
+    return generate(index);
+  }
+
   function save(index, value) {
     const slot = slots()[index];
     if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
     slot.alertSetup = { ...slot.alertSetup, profile: cleanAlertProfile(value), status: "ready", error: "", edited: true };
     slot.profileId = "auto";
   }
-  return { generate, observe, save };
+  return { generate, observe, navigated, save };
 }

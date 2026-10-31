@@ -79,6 +79,18 @@ export function hostOf(url) {
   }
 }
 
+// 재생 위치나 앵커만 바뀐 것은 같은 페이지로 본다.
+export function pageKey(url) {
+  try {
+    const page = new URL(url);
+    page.hash = "";
+    page.searchParams.delete("t");
+    return page.href;
+  } catch {
+    return "";
+  }
+}
+
 export function classify({ url, title }, rules, profiles) {
   const host = hostOf(url);
   if (rules[host]) return rules[host];

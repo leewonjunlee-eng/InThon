@@ -6,9 +6,10 @@ import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-
 import { scanConnectedTab } from "./lib/page-context.js";
 import { normalizeConnection, applyBundledConnection } from "./lib/connection.js";
 import { SERVER_CONFIG } from "./server-config.js";
-import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf, nextConnectedSlot } from "./lib/logic.js";
+import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf, nextConnectedSlot, pageKey } from "./lib/logic.js";
 
 const STANDBY_DELAY_MS = 2000;
+const NAV_SETTLE_MS = 2500; // SPA는 주소가 먼저 바뀌고 제목과 본문이 뒤따른다.
 const NOTIFICATION_PREFIX = "moment:";
 const WORK_TOPICS = ["과제", "기타"];
 
@@ -207,7 +208,7 @@ async function connectTab(tab, index) {
   await toEngine("capture", { streamId, tabId: tab.id, screen: state.settings.screen });
   const topic = await topicFor(tab);
   state.slots[free] = {
-    ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: "auto",
+    ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: "auto", pageKey: pageKey(tab.url),
   };
   if (!state.slots.some(slot => slot.tabId !== null && slot.role === "main")) {
     state.manual = free;
@@ -527,8 +528,32 @@ async function onViewChanged() {
 }
 
 chrome.tabs.onActivated.addListener(onViewChanged);
+const navigationTimers = new Map();
+
+function slotNavigated(tabId, url) {
+  const index = slotIndex(tabId);
+  const key = pageKey(url);
+  if (index === -1 || state.slots[index].pageKey === key) return;
+  state.slots[index].pageKey = key;
+  clearTimeout(navigationTimers.get(tabId));
+  navigationTimers.set(tabId, setTimeout(() => refreshNavigatedSlot(tabId).catch(() => {}), NAV_SETTLE_MS));
+}
+
+async function refreshNavigatedSlot(tabId) {
+  await load();
+  navigationTimers.delete(tabId);
+  const index = slotIndex(tabId);
+  if (index === -1) return;
+  const tab = await chrome.tabs.get(tabId);
+  Object.assign(state.slots[index], { title: tab.title, host: hostOf(tab.url), topic: await topicFor(tab) });
+  state.transcript = state.transcript.filter(line => line.tabId !== tabId); // 이전 페이지의 말을 새 조건에 섞지 않는다.
+  await autoProfiles.navigated(index);
+  await applyRoles();
+}
+
 chrome.tabs.onUpdated.addListener((tabId, change) => {
   if (change.title || change.url || change.audible !== undefined) onViewChanged();
+  if (change.url) load().then(() => slotNavigated(tabId, change.url));
   if (change.title) {
     load().then(() => {
       const index = slotIndex(tabId);
