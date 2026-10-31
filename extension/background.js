@@ -366,9 +366,10 @@ const commands = {
   "save-profile": ({ profile }) => {
     state.customProfiles = [...state.customProfiles, profile];
   },
-  "generate-alerts": ({ index, tabId }) => {
+  "generate-alerts": ({ index, tabId, request }) => {
     if (state.slots[index]?.tabId !== tabId) throw new Error("연결된 탭이 바뀌었습니다.");
-    void generateAlerts(index);
+    if (request !== undefined && typeof request !== "string") throw new Error("원하는 알림을 글로 입력해 주세요.");
+    void generateAlerts(index, { request });
   },
   "save-alerts": ({ index, tabId, profile }) => {
     if (state.slots[index]?.tabId !== tabId) throw new Error("연결된 탭이 바뀌었습니다.");

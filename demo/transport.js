@@ -27,7 +27,7 @@ export function createPreviewTransport() {
     transcript: id => state.transcript.filter(line => line.id === id).map(line => line.text).join("\n"),
     publish, apply,
   });
-  const generateAlerts = index => autoProfiles.generate(index).catch(error => { state.status = error.message; publish(); });
+  const generateAlerts = (index, options) => autoProfiles.generate(index, options).catch(error => { state.status = error.message; publish(); });
   const snapshot = () => ({ manual: state.manual, slots: structuredClone(state.slots) });
   function onEvent(event) {
     if (event.type === "status") state.status = event.text;
@@ -147,7 +147,8 @@ export function createPreviewTransport() {
         case "save-profile": state.profiles.push(payload.profile); break;
         case "generate-alerts":
           if (!slot || slot.tabId !== payload.tabId) throw new Error("연결된 탭이 바뀌었습니다.");
-          void generateAlerts(index); break;
+          if (payload.request !== undefined && typeof payload.request !== "string") throw new Error("원하는 알림을 글로 입력해 주세요.");
+          void generateAlerts(index, { request: payload.request }); break;
         case "save-alerts":
           if (!slot || slot.tabId !== payload.tabId) throw new Error("연결된 탭이 바뀌었습니다.");
           autoProfiles.save(index, payload.profile); break;

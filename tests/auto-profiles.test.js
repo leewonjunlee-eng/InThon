@@ -112,11 +112,50 @@ test("disconnecting during a page scan prevents the stale page from reaching AI"
   assert.equal(calls, 0);
 });
 
+test("user preferences override title-only generation and persist through refinement and retry", async () => {
+  const requests = [];
+  const f = fixture(async value => { requests.push(value); return profile("한화 경기"); });
+  f.context("한화가 경기를 치르고 있습니다. ".repeat(15));
+  const request = "한화 경기에서 갱킹과 한타만 알려줘. 일정은 빼줘.";
+  await f.controller.generate(0, { request });
+  assert.equal(requests[0].request, request);
+  assert(requests[0].text.length > 120);
+  assert.equal(f.slots[0].alertSetup.request, request);
+  f.slots[0].alertSetup.startedAt -= 31000;
+  await f.controller.observe(0);
+  assert.equal(requests[1].request, request);
+  await f.controller.generate(0);
+  assert.equal(requests[2].request, request);
+  await f.controller.generate(0, { request: "x".repeat(1200) });
+  assert.equal(requests[3].request.length, 1000);
+  await assert.rejects(f.controller.generate(0, { request: {} }), /글로 입력/);
+});
+
 test("an old server returns an actionable restart message rather than not found", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => ({ ok: false, status: 404, json: async () => ({ error: "not found" }) });
   try {
     const api = createApi(async () => ({ serverUrl: "http://127.0.0.1:8787", token: "" }));
     await assert.rejects(api.suggestProfile({ title: "YouTube" }), /판단 서버가 이전 버전.*python server\/server.py/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("a server must support prompts so user requests cannot be silently ignored", async () => {
+  const originalFetch = globalThis.fetch;
+  const urls = [];
+  let supportsPrompts = false;
+  globalThis.fetch = async (url, options) => {
+    urls.push(url);
+    if (url.endsWith("/health")) return { ok: true, json: async () => ({ capabilities: supportsPrompts ? ["prompt-alerts"] : ["suggest-profile"] }) };
+    assert.equal(JSON.parse(options.body).request, "한화 한타");
+    return { ok: true, json: async () => profile() };
+  };
+  try {
+    const api = createApi(async () => ({ serverUrl: "http://127.0.0.1:8787", token: "" }));
+    await assert.rejects(api.suggestProfile({ request: "한화 한타" }), /판단 서버가 이전 버전/);
+    assert.equal(urls.length, 1);
+    supportsPrompts = true;
+    await api.suggestProfile({ request: "한화 한타" });
+    assert(urls.at(-1).endsWith("/suggest-profile"));
   } finally { globalThis.fetch = originalFetch; }
 });

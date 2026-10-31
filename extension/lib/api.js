@@ -2,6 +2,12 @@
 export function createApi(getConfig) {
   async function post(path, body) {
     const { serverUrl, token } = await getConfig();
+    const restartMessage = "판단 서버가 이전 버전입니다. 실행 중인 서버를 종료하고 python server/server.py로 다시 시작한 뒤 AI로 다시 제안받기를 눌러 주세요.";
+    if (path === "/suggest-profile" && body.request) {
+      const health = await fetch(serverUrl.replace(/\/$/, "") + "/health", { signal: AbortSignal.timeout(5000) });
+      const info = await health.json().catch(() => ({}));
+      if (!health.ok || !info?.capabilities?.includes("prompt-alerts")) throw new Error(restartMessage);
+    }
     const response = await fetch(serverUrl.replace(/\/$/, "") + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { "X-Demo-Token": token } : {}) },
@@ -10,7 +16,7 @@ export function createApi(getConfig) {
     });
     if (!response.ok) {
       if (path === "/suggest-profile" && response.status === 404) {
-        throw new Error("판단 서버가 이전 버전입니다. 실행 중인 서버를 종료하고 python server/server.py로 다시 시작한 뒤 AI로 다시 제안받기를 눌러 주세요.");
+        throw new Error(restartMessage);
       }
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || `server ${response.status}`);

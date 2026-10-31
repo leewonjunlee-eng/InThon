@@ -110,7 +110,7 @@ function renderAlertSummary(slot, i) {
     : setup?.status === "error" ? `조건 생성 실패: ${setup.error}`
     : setup?.profile ? `${setup.profile.name} · ${enabled ? `${enabled}개 조건 사용 중` : "알림 조건 모두 꺼짐"}` : "이 탭의 알림을 준비하고 있어요.";
   const source = setup?.edited ? "직접 수정한 조건을 유지합니다." : setup?.scanError || (setup?.source === "transcript" ? "최근 자막을 참고해 보완했어요." : setup?.source === "page" ? "탭의 설명·본문·표시된 자막을 참고했어요. 재생 자막이 모이면 한 번 보완합니다." : "탭 제목으로 제안하고, 자막이 모이면 한 번 보완합니다.");
-  return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet")}</div>`;
+  return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${setup?.request ? `<p class="sub">내 요청: ${escapeHTML(setup.request).slice(0, 160)}</p>` : ""}${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet")}</div>`;
 }
 
 function renderAlertEditor() {
@@ -120,6 +120,7 @@ function renderAlertEditor() {
   let html = button("← 돌아가기", "close-alert", "quiet") + `<h3>소리 ${label(index)} · 알림 조건</h3><p class="sub">${escapeHTML(slot.title)}</p><p class="sub">체크한 상황 중 하나가 실제로 발생하면 대기 중에 알려드려요. 저장한 수정 내용은 AI가 덮어쓰지 않습니다.</p>`;
   if (slot.alertSetup?.status === "generating") html += `<div class="notice" role="status">AI가 조건을 제안하고 있어요. 기다리는 동안 직접 작성해도 됩니다.</div>`;
   if (slot.alertSetup?.status === "error") html += `<div class="notice" role="alert">${escapeHTML(slot.alertSetup.error)} 직접 작성하거나 다시 시도해 주세요.</div>`;
+  html += `<div class="notice stack"><label class="stack">AI에게 원하는 알림 설명하기<textarea rows="4" maxlength="1000" data-alert-request aria-label="AI에게 원하는 알림 설명하기" placeholder="한화가 경기 중일 때 한화의 갱킹, 상대가 한화 라인에 갱을 올 때, 한화가 참여하는 한타만 알려줘. 일정 안내는 빼줘.">${escapeHTML(alertEditor.request)}</textarea></label><p class="sub">누구의 어떤 상황을 알고 싶은지 적어 주세요. 요청을 우선해 조건을 새로 만들고 적용합니다.</p>${button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "요청 반영해 다시 만들기", "prompt-alert", "solid full", slot.alertSetup?.status === "generating")}</div>`;
   html += `<label class="stack">알림 이름<input type="text" maxlength="60" data-alert-field="name" value="${escapeHTML(profile.name)}"></label>`;
   html += `<div class="alert-rules">${profile.rules.map((rule, j) => `<div class="alert-rule"><label class="check"><input type="checkbox" data-alert-enabled="${j}" ${rule.enabled ? "checked" : ""}> 조건 ${j + 1} 사용</label><textarea rows="3" maxlength="240" data-alert-rule="${j}" aria-label="알림 조건 ${j + 1}">${escapeHTML(rule.text)}</textarea>${button("삭제", `remove-rule:${j}`, "quiet")}</div>`).join("")}</div>`;
   html += button("＋ 조건 추가", "add-rule", "full", profile.rules.length >= 6);
@@ -178,7 +179,7 @@ async function dispatch(action) {
       return render();
     case "edit-alert": {
       const slot = state.slots[i];
-      alertEditor = { index: i, tabId: slot.tabId, dirty: false, profile: structuredClone(slot.alertSetup?.profile ?? {
+      alertEditor = { index: i, tabId: slot.tabId, dirty: false, request: slot.alertSetup?.request ?? "", profile: structuredClone(slot.alertSetup?.profile ?? {
         name: "이 탭의 알림", summaryFocus: "", rules: [{ text: "", enabled: true }],
       }) };
       return render();
@@ -197,6 +198,14 @@ async function dispatch(action) {
       const { index, tabId } = alertEditor;
       alertEditor = null;
       return act("generate-alerts", { index, tabId });
+    }
+    case "prompt-alert": {
+      const { index, tabId } = alertEditor;
+      const request = alertEditor.request.trim();
+      if (!request) { notice = "어떤 상황에서 알림을 받고 싶은지 입력해 주세요."; return render(); }
+      const reply = await act("generate-alerts", { index, tabId, request });
+      if (reply?.ok) { alertEditor = null; notice = "요청을 반영해 알림 조건을 만들고 있어요."; render(); }
+      return;
     }
     case "select": {
       if (picker === null) return;
@@ -260,6 +269,7 @@ root.addEventListener("click", (event) => {
 });
 root.addEventListener("input", (event) => {
   const { dataset, value } = event.target;
+  if (alertEditor && dataset.alertRequest !== undefined) { alertEditor.request = value; alertEditor.dirty = true; }
   if (alertEditor && (dataset.alertField || dataset.alertRule !== undefined || dataset.alertEnabled !== undefined)) {
     alertEditor.dirty = true;
     if (dataset.alertField) alertEditor.profile[dataset.alertField] = value;

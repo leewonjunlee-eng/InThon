@@ -33,6 +33,17 @@ class SuggestProfileTests(unittest.TestCase):
             server.judge({"condition": "조건" * 600, "text": "예시 자막"})
         self.assertIn("조건" * 600, model.call_args.args[0])
 
+    def test_user_preference_is_separate_from_untrusted_page_context(self):
+        answer = {"name": "한화 경기", "rules": [{"text": "한화 경기 중 한타가 발생하면"}]}
+        with patch.object(server, "ask_json", return_value=answer) as model:
+            server.suggest_profile({"title": "스위스 스테이지 Day 7 | 2026 월드 챔피언십",
+                                    "request": "한화 갱킹과 한타만 알려줘. 일정 제외."})
+        import json
+        context = json.loads(model.call_args.args[1])
+        self.assertEqual(context["request"], "한화 갱킹과 한타만 알려줘. 일정 제외.")
+        self.assertIn("가장 우선", model.call_args.args[0])
+        self.assertIn("모든 조건에 그 범위", model.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()

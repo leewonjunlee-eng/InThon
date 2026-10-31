@@ -24,13 +24,16 @@ export function contextProfile(profile, contextOnly) {
 }
 
 export function createAutoProfiles({ api, slots, transcript, publish, apply, readContext }) {
-  async function generate(index, { refine = false } = {}) {
+  async function generate(index, { refine = false, request } = {}) {
     const slot = slots()[index];
     if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
     const previous = slot.alertSetup;
+    if (request !== undefined && typeof request !== "string") throw new Error("원하는 알림을 글로 입력해 주세요.");
+    const userRequest = (request ?? previous?.request ?? "").trim().slice(0, 1000);
     const setup = slot.alertSetup = {
       ...previous, status: "generating", phase: readContext ? "scanning" : "generating", error: "", edited: false,
       startedAt: previous?.startedAt ?? Date.now(), refined: refine || previous?.refined || false,
+      request: userRequest,
     };
     slot.profileId = "auto";
     const current = () => slots()[index] === slot && slot.alertSetup === setup && slot.profileId === "auto";
@@ -46,7 +49,8 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
         await publish();
       }
       const result = await api.suggestProfile({ ...page, title: page.title || slot.title, host: slot.host,
-        text: refine ? transcript(slot.tabId).slice(-6000) : "" });
+        ...(userRequest ? { request: userRequest } : {}),
+        text: refine || userRequest ? transcript(slot.tabId).slice(-6000) : "" });
       if (!current()) return;
       setup.profile = cleanAlertProfile(result);
       setup.status = "ready";
