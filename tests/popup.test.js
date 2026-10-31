@@ -74,11 +74,12 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     subscriber({ to: 'ui', state: structuredClone(state) });
     assert.equal(main.scrollTop, 90, 'background updates preserve the current scroll position');
     assert(main.innerHTML.includes('기본 설정'));
-    assert.equal(toggle.textContent, '사운드홈');
-    await click('toggle-settings');
+    assert.equal(toggle.hidden, true);
+    await click('tab:sound');
+    assert.equal(toggle.hidden, false);
     assert.equal(toggle.textContent, '세부설정');
     await click('toggle-settings');
-    assert.equal(toggle.textContent, '사운드홈');
+    assert.equal(toggle.hidden, true);
     assert(!main.innerHTML.includes('감지 민감도'));
     assert(main.innerHTML.includes('<h3>음향</h3>'));
     assert(main.innerHTML.includes('<h3>알림</h3>'));
@@ -90,6 +91,10 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert.equal(main.scrollTop, 0, 'switching settings tabs resets the content position');
     assert(main.innerHTML.includes('내 프리셋'));
     await click('preset-new');
+    assert(main.innerHTML.startsWith('<div class="settings-top">'));
+    assert(main.innerHTML.includes('aria-label="프리셋 목록으로 돌아가기"'));
+    assert(!main.innerHTML.includes('← 프리셋'));
+    assert.equal(toggle.hidden, true);
     assert(main.innerHTML.includes('AI로 초안 만들기'));
     await click('draft');
     assert(main.innerHTML.includes('알림을 받고 싶은 상황을 적어주세요'));
@@ -108,6 +113,9 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert(main.innerHTML.includes('내 프리셋'), 'saving returns to the preset list');
     assert(!main.innerHTML.includes('data-action="preset-edit"'));
     await click('preset-view:1');
+    assert(main.innerHTML.startsWith('<div class="settings-top">'));
+    assert(main.innerHTML.includes('aria-label="프리셋 목록으로 돌아가기"'));
+    assert.equal(toggle.hidden, true);
     await click('preset-delete');
     assert(main.innerHTML.includes('<dialog class="delete-dialog"'));
     assert(main.innerHTML.includes('aria-labelledby="delete-title"'));

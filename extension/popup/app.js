@@ -152,14 +152,17 @@ function renderPresetList() {
   const items = profiles => profiles.map(profile => button(`<span class="preset-copy"><strong>${escapeHTML(profile.name)}</strong><span class="sub">${escapeHTML(profile.condition || "알림 조건 확인하기")}</span></span><span aria-hidden="true">›</span>`, `preset-view:${state.profiles.indexOf(profile)}`, "preset-item")).join("");
   return `<section class="settings-section"><div class="preset-section-heading"><h3>내 프리셋 <span class="count">${custom.length}</span></h3>${button("＋ 만들기", "preset-new", "preset-add")}</div>${custom.length ? `<div class="preset-list">${items(custom)}</div>` : `<div class="preset-empty"><p>나만의 알림을 만들어보세요</p><p class="sub">원하는 순간을 적으면 AI가 초안을 만들어요.</p>${button("첫 프리셋 만들기", "preset-new", "quiet first-preset-link")}</div>`}</section><section class="settings-section"><h3>기본 프리셋</h3><div class="preset-list">${items(builtIn)}</div></section>`;
 }
+function presetBack() {
+  return `<div class="settings-top">${button("←", "preset-back", "quiet back-link", false, 'aria-label="프리셋 목록으로 돌아가기"')}</div>`;
+}
 function renderPresetDetail() {
   const profile = state.profiles.find(item => item.id === selectedPreset);
-  if (!profile) return `${button("← 프리셋", "preset-back", "quiet")}<p>이 프리셋을 찾을 수 없어요.</p>`;
+  if (!profile) return `${presetBack()}<p>이 프리셋을 찾을 수 없어요.</p>`;
   const custom = profile.id.startsWith("custom-");
-  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading">${custom ? "" : '<span class="sub">기본 프리셋</span>'}<h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${presetKeywordDetail(profile)}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
+  return `${presetBack()}<div class="preset-heading">${custom ? "" : '<span class="sub">기본 프리셋</span>'}<h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${presetKeywordDetail(profile)}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
 }
 function renderPresetCreate() {
-  let html = `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading">${draft ? '<span class="sub">내용 확인</span>' : ""}<h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
+  let html = `${presetBack()}<div class="preset-heading">${draft ? '<span class="sub">내용 확인</span>' : ""}<h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
   if (!draft) return html + `<label class="stack"><span class="sub">원하는 상황을 자유롭게 적어주세요.</span><textarea rows="5" maxlength="200" data-preset-request placeholder="한화 경기에서 한타나 갱킹이 시작하면 알려줘">${escapeHTML(presetRequest)}</textarea></label><p class="sub">예: 강의에서 과제나 시험 일정이 나오면 알려줘</p>${button(busy ? "초안을 만들고 있어요…" : "AI로 초안 만들기", "draft", "solid full", busy)}${button("직접 작성하기", "preset-manual", "quiet", busy)}`;
   html += presetFields(draft, "preset") + `<div class="preset-actions">${button(busy ? "저장 중…" : "프리셋 저장", "save-draft", "solid full", busy)}${button("취소", "preset-back", "quiet", busy)}</div>`;
   return html;
@@ -173,7 +176,7 @@ function renderEntrust() {
 function render() {
   if (!state) return;
   const toggle = document.getElementById("settings-toggle");
-  if (toggle) { toggle.textContent = tab === "entrust" ? "사운드홈" : "세부설정"; }
+  if (toggle) { toggle.textContent = "세부설정"; toggle.hidden = tab === "entrust"; }
   const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
   let html = alertEditor ? renderAlertEditor() : picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
   const message = notice || state.status;
