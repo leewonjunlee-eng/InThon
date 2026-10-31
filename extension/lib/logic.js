@@ -175,7 +175,7 @@ const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.l
 
 // 소리 크기가 최근 기준보다 일정 시간 크게 높으면 급등으로 본다. 4Hz 입력 기준.
 export class SurgeDetector {
-  constructor({ thresholdDb = SURGE_DB.normal, windowSize = 120, sustain = 3, cooldownMs = 15000 } = {}) {
+  constructor({ thresholdDb = SURGE_DB.normal, windowSize = 120, sustain = 3, cooldownMs = 8000 } = {}) {
     Object.assign(this, { thresholdDb, windowSize, sustain, cooldownMs });
     this.history = [];
     this.over = 0;
