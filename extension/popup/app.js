@@ -125,13 +125,12 @@ function renderAlertEditor() {
   const { index, tabId, profile } = alertEditor;
   const slot = state.slots[index];
   if (slot?.tabId !== tabId) return `<div class="notice">연결된 탭이 바뀌었습니다.</div>${button("돌아가기", "close-alert")}`;
-  let html = button("← 돌아가기", "close-alert", "quiet") + `<h3>소리 ${label(index)} · 알림 조건</h3><p class="sub">${escapeHTML(slot.title)}</p><p class="sub">체크한 상황 중 하나가 실제로 발생하면 대기 중에 알려드려요. 저장한 수정 내용은 AI가 덮어쓰지 않습니다.</p>`;
+  let html = button("← 돌아가기", "close-alert", "quiet back-link") + `<div class="preset-heading"><h3>알림 조건을 다듬어주세요</h3></div>`;
   if (slot.alertSetup?.status === "generating") html += `<div class="notice" role="status">AI가 조건을 제안하고 있어요. 기다리는 동안 직접 작성해도 됩니다.</div>`;
   if (slot.alertSetup?.status === "error") html += `<div class="notice" role="alert">${escapeHTML(slot.alertSetup.error)} 직접 작성하거나 다시 시도해 주세요.</div>`;
-  html += `<div class="notice stack"><label class="stack">AI에게 원하는 알림 설명하기<textarea rows="4" maxlength="1000" data-alert-request aria-label="AI에게 원하는 알림 설명하기" placeholder="한화가 경기 중일 때 한화의 갱킹, 상대가 한화 라인에 갱을 올 때, 한화가 참여하는 한타만 알려줘. 일정 안내는 빼줘.">${escapeHTML(alertEditor.request)}</textarea></label><p class="sub">누구의 어떤 상황을 알고 싶은지 적어 주세요. 요청을 우선해 조건을 새로 만들고 적용합니다.</p>${button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "요청 반영해 다시 만들기", "prompt-alert", "solid full", slot.alertSetup?.status === "generating")}</div>`;
   html += presetFields(profile, "alert");
-  html += `<div class="two">${button("저장하고 적용", "save-alert", "solid")}${button("취소", "close-alert")}</div>`;
-  html += button("프리셋으로 저장", "preset-from-alert", "full");
+  html += `<div class="preset-actions">${button("저장하고 적용", "save-alert", "solid full")}${button("프리셋으로 저장", "preset-from-alert", "full")}${button("취소", "close-alert", "quiet")}</div>`;
+  html += `<details class="settings-advanced" data-profile-detail="ai-regenerate"><summary>AI로 다시 만들기</summary><div class="stack"><label class="stack">AI에게 원하는 알림 설명하기<textarea rows="4" maxlength="1000" data-alert-request aria-label="AI에게 원하는 알림 설명하기" placeholder="원하는 알림 상황을 적어주세요.">${escapeHTML(alertEditor.request)}</textarea></label>${button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "요청 반영해 다시 만들기", "prompt-alert", "solid full", slot.alertSetup?.status === "generating")}</div></details>`;
   return html;
 }
 
