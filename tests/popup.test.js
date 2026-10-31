@@ -71,14 +71,14 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     subscriber({ to: 'ui', state: structuredClone(state) });
     assert.equal(main.scrollTop, 90, 'background updates preserve the current scroll position');
     assert(main.innerHTML.includes('기본 설정'));
-    assert.equal(toggle.textContent, '세부설정');
+    assert.equal(toggle.textContent, '사운드홈');
     await click('toggle-settings');
     assert.equal(toggle.textContent, '세부설정');
     await click('toggle-settings');
-    assert.equal(toggle.textContent, '세부설정');
+    assert.equal(toggle.textContent, '사운드홈');
     assert(!main.innerHTML.includes('감지 민감도'));
     assert(main.innerHTML.includes('감지 · 알림'));
-    assert(main.innerHTML.includes('aria-label="소리 구성으로 돌아가기"'));
+    assert(main.innerHTML.includes('aria-label="사운드홈으로 돌아가기"'));
     assert(!main.innerHTML.includes('대기 소리 음소거'));
     assert(!main.innerHTML.includes('메인 소리가 나면 대기 소리 줄이기'));
     assert(!main.innerHTML.includes('AI 서버 연결'));
