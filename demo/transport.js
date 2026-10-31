@@ -1,3 +1,4 @@
+import { removeSlot } from "../extension/lib/slots.js";
 import { savePreset, deletePreset } from "../extension/lib/presets.js";
 import { AudioEngine } from "../extension/engine.js";
 import { createApi } from "../extension/lib/api.js";
@@ -107,6 +108,14 @@ export function createPreviewTransport() {
           selections.push(null);
           publish();
           return { ok: true, result: state.slots.length - 1 };
+        case "remove-slot": {
+          const removed = removeSlot(state, index);
+          const item = media.get(removed.tabId);
+          item?.audio.pause(); item?.node.disconnect();
+          engine?.remove(removed.tabId); media.delete(removed.tabId);
+          selections = selections.filter((_, i) => i !== index);
+          break;
+        }
         case "connect": await connect(index, payload.tabId); void generateAlerts(index); break;
         case "disconnect": {
           const item = media.get(slot.tabId);
@@ -185,5 +194,5 @@ export function createPreviewTransport() {
     }
   }
   return { isExtension: false, send, subscribe: callback => { listener = callback; },
-    getSelections: async () => selections, saveSelections: async next => { selections = next; } };
+    getSelections: async () => structuredClone(selections), saveSelections: async next => { selections = structuredClone(next); } };
 }

@@ -211,8 +211,23 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[2].tabId, null);
     assert.equal(latest.slots[0].tabId, 21);
     assert.equal(latest.slots[1].tabId, 22);
-    await send('disconnect', { index: 0 });
-    await send('disconnect', { index: 1 });
+    await send('focus', { index: 1 });
+    sessionData.uiSelections = [{ id: 21 }, { id: 22 }, null, null];
+    assert.equal((await send('remove-slot', { index: 0 })).ok, true);
+    assert.equal(latest.slots.length, 3);
+    assert.equal(latest.slots[0].tabId, 22);
+    assert.equal(latest.manual, 0, 'focus follows the surviving tab');
+    assert.equal(latest.snapshot, null);
+    assert.equal(sessionData.uiSelections[0].id, 22);
+    assert(engineCommands.some(item => item.cmd === 'remove' && item.tabId === 21));
+    assert.equal((await send('remove-slot', { index: 99 })).ok, false);
+    await send('remove-slot', { index: 0 });
+    assert.equal(latest.manual, null);
+    await send('remove-slot', { index: 0 });
+    await send('remove-slot', { index: 0 });
+    assert.equal(latest.slots.length, 0);
+    assert.equal((await send('add-slot')).result, 0);
+    assert.equal(latest.slots[0].tabId, null);
 
   } finally { delete globalThis.chrome; globalThis.fetch = originalFetch; }
 });

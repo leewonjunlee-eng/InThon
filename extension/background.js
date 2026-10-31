@@ -1,3 +1,4 @@
+import { removeSlot } from "./lib/slots.js";
 import { savePreset, deletePreset } from "./lib/presets.js";
 import { reopenPopupAfterConnect } from "./lib/popup-recovery.js";
 import { createApi } from "./lib/api.js";
@@ -361,6 +362,13 @@ async function createProfile(request) {
 }
 
 const commands = {
+  "remove-slot": async ({ index }) => {
+    const slot = removeSlot(state, index);
+    const { uiSelections = [] } = await chrome.storage.session.get("uiSelections");
+    uiSelections.splice(index, 1);
+    await chrome.storage.session.set({ uiSelections });
+    if (slot.tabId !== null) await toEngine("remove", { tabId: slot.tabId }).catch(() => {});
+  },
   "add-slot": () => {
     state.slots.push(emptySlot(state.settings));
     return state.slots.length - 1;

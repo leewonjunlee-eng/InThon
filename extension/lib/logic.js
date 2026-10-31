@@ -18,7 +18,7 @@ export const SURGE_DB = { low: 12, normal: 9, high: 6 };
 export const PROFILES = [
   {
     id: "lol",
-    name: "롤",
+    name: "게임",
     relatedSites: ["op.gg", "fow.kr", "inven.co.kr", "lol.ps", "leagueoflegends.com"],
     relatedWords: ["롤", "lck", "리그 오브 레전드", "league of legends"],
     keywords: ["한타", "펜타킬", "쿼드라킬", "바론을 처치", "넥서스를 파괴"],
@@ -28,7 +28,7 @@ export const PROFILES = [
   },
   {
     id: "baseball",
-    name: "야구",
+    name: "스포츠",
     relatedSites: ["koreabaseball.com", "statiz.co.kr", "mykbostats.com"],
     relatedWords: ["야구", "kbo", "프로야구"],
     keywords: ["홈런", "만루", "끝내기", "역전"],

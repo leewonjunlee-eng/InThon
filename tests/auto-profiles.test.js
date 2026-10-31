@@ -159,3 +159,16 @@ test("a server must support prompts so user requests cannot be silently ignored"
     assert(urls.at(-1).endsWith("/suggest-profile"));
   } finally { globalThis.fetch = originalFetch; }
 });
+
+ test("generation follows a surviving slot when a preceding slot is deleted", async () => {
+  let finish;
+  const f = fixture(() => new Promise(resolve => { finish = resolve; }));
+  f.slots.unshift({ tabId: 9 });
+  const pending = f.controller.generate(1);
+  await new Promise(resolve => setImmediate(resolve));
+  f.slots.splice(0, 1);
+  finish(profile());
+  await pending;
+  assert.equal(f.slots[0].alertSetup.status, "ready");
+  assert.equal(f.applies(), 1);
+});

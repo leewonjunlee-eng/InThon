@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS, emptySlot } from "../extension/lib/logic.js";
 test("the real popup editor keeps unsaved edits during updates and submits enabled conditions", async () => {
   const handlers = new Map(), sent = [], savedSelections = [];
   const main = { innerHTML: "", querySelectorAll: () => [] };
+  const toggle = { dataset: {}, textContent: "" };
   const root = { addEventListener: (event, handler) => handlers.set(event, handler) };
   const slot = { ...emptySlot(), tabId: 11, title: "제품 공개", host: "example.com", role: "standby", profileId: "auto",
     alertSetup: { status: "ready", source: "title", profile: { name: "판매 알림", summaryFocus: "가격", rules: [{ text: "가격이 공개되면", enabled: true }] } } };
@@ -12,7 +13,7 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
   let subscriber;
   const documentBefore = globalThis.document, chromeBefore = globalThis.chrome;
   globalThis.document = { documentElement: { classList: { add() {} } }, activeElement: null,
-    getElementById: id => id === "ab-mock" ? root : main };
+    getElementById: id => id === "ab-mock" ? root : id === "settings-toggle" ? toggle : main };
   globalThis.chrome = { runtime: { id: "test", onMessage: { addListener: handler => { subscriber = handler; } },
     sendMessage: async message => { sent.push(message); if (message.cmd === "state") subscriber({ to: "ui", state }); return { ok: true }; } },
     storage: { session: { get: async () => ({ uiSelections: [null, { id: 12, title: "다른 탭" }] }), set: async value => { savedSelections.push(structuredClone(value.uiSelections)); } } } };
@@ -25,6 +26,14 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     await new Promise(resolve => setImmediate(resolve));
     assert(main.innerHTML.includes('aria-label="1번 탭 알림 프리셋"'));
     assert(main.innerHTML.includes('value="custom-game"'));
+    assert(!main.innerHTML.includes('value="lol"'));
+    assert(!main.innerHTML.includes('개 조건 사용 중'));
+    assert(main.innerHTML.includes('aria-label="1번 탭 삭제"'));
+    await click('add-slot');
+    assert(!main.innerHTML.includes('연결할 탭 선택'));
+    await click('pick:1');
+    assert(!main.innerHTML.includes('선택만으로 소리가'));
+    await click('back');
     handlers.get('change')({ target: { dataset: { profile: '0' }, value: 'custom-game' } });
     await new Promise(resolve => setImmediate(resolve));
     assert(sent.some(message => message.cmd === 'set-profile' && message.index === 0 && message.profileId === 'custom-game'));
@@ -55,6 +64,12 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert.equal(generate.request, request);
     await click('tab:entrust');
     assert(main.innerHTML.includes('기본 설정'));
+    assert.equal(toggle.textContent, '메인');
+    await click('toggle-settings');
+    assert.equal(toggle.textContent, '세부설정');
+    await click('toggle-settings');
+    assert.equal(toggle.textContent, '메인');
+    assert(!main.innerHTML.includes('감지 민감도'));
     assert(main.innerHTML.includes('감지 · 알림'));
     assert(main.innerHTML.includes('aria-label="소리 구성으로 돌아가기"'));
     assert(!main.innerHTML.includes('대기 소리 음소거'));

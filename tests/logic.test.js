@@ -41,9 +41,9 @@ test("음량은 역할별로 적용되고 음소거가 우선한다", () => {
 });
 
 test("탭 분류는 사용자 규칙, 사이트, 단어 순서다", () => {
-  assert.equal(classify({ url: "https://www.op.gg/x", title: "전적" }, {}, PROFILES), "롤");
-  assert.equal(classify({ url: "https://kr.op.gg/x", title: "" }, {}, PROFILES), "롤");
-  assert.equal(classify({ url: "https://www.youtube.com/w", title: "LCK 결승 생중계" }, {}, PROFILES), "롤");
+  assert.equal(classify({ url: "https://www.op.gg/x", title: "전적" }, {}, PROFILES), "게임");
+  assert.equal(classify({ url: "https://kr.op.gg/x", title: "" }, {}, PROFILES), "게임");
+  assert.equal(classify({ url: "https://www.youtube.com/w", title: "LCK 결승 생중계" }, {}, PROFILES), "게임");
   assert.equal(classify({ url: "https://www.op.gg/x", title: "" }, { "op.gg": "과제" }, PROFILES), "과제");
   assert.equal(classify({ url: "https://docs.google.com/d", title: "운영체제 보고서" }, {}, PROFILES), null);
   assert.equal(hostOf("chrome://extensions"), "extensions");

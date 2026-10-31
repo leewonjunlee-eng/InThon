@@ -74,6 +74,12 @@ test('preview preserves AI requests, focus/switch/restore, audio controls and di
     await send('add-slot');
     await send('restore');
     assert.equal(state.manual, 2);
+    await send('remove-slot', { index: 0 });
+    assert.equal(state.slots.length, 3);
+    assert.equal(state.slots[1].tabId, 3);
+    assert.equal(state.manual, 1);
+    await send('remove-slot', { index: 1 });
+    assert.equal(state.manual, null);
 
   } finally {
     for (let index = 0; index < state.slots.length; index++) {

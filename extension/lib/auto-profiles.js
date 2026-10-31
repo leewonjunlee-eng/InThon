@@ -36,7 +36,7 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
       request: userRequest,
     };
     slot.profileId = "auto";
-    const current = () => slots()[index] === slot && slot.alertSetup === setup && slot.profileId === "auto";
+    const current = () => slots().includes(slot) && slot.alertSetup === setup && slot.profileId === "auto";
     await publish();
     try {
       let page = {};

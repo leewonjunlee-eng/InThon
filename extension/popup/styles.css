@@ -395,3 +395,6 @@ html.extension-popup { width: 460px; height: 600px; }
 #ab-mock .add-slot { border-style: dashed; background: var(--tint); color: var(--brand); padding: 12px; }
 
 #ab-mock .first-preset-link { text-decoration: underline; text-underline-offset: 3px; }
+
+#ab-mock .alert-edit-link { text-decoration: underline; text-underline-offset: 3px; }
+#ab-mock .remove-slot { display: inline-flex; align-items: center; justify-content: center; padding: 8px; min-width: 36px; flex-shrink: 0; }

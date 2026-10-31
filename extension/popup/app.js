@@ -65,7 +65,7 @@ function renderPicker() {
     html += button(`<span>${escapeHTML(source.title)}<span class="sub">${escapeHTML(source.host)}${source.audible ? " · 재생 중" : ""}</span></span>${used ? '<span class="sub">다른 슬롯에서 사용 중</span>' : ""}`, `select:${source.id}`, "choice", used);
   }
   if (!sources.length) html += '<p class="sub">연결할 웹 탭이 없습니다. 먼저 동영상이나 음악 탭을 열어주세요.</p>';
-  return html + `</div><div class="notice">선택만으로 소리가 연결되지는 않아요. Chrome에서는 선택한 탭에서 확장 아이콘을 눌러 연결합니다.</div>`;
+  return html + `</div>`;
 }
 
 function renderSlot(slot, i) {
@@ -76,11 +76,11 @@ function renderSlot(slot, i) {
   const status = connected && main ? "집중 탭" : connected || selected ? "대기 탭" : "비어 있음";
   const kind = connected && main ? "focused" : connected || selected ? "standby" : "vacant";
   const symbol = kind === "standby" ? `<img src="${transport.isExtension ? "../icons/pause.svg" : "/extension/icons/pause.svg"}" width="18" height="18" alt="">` : kind === "focused" ? "●" : "○";
-  let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="${label(i)} 탭 소리"><div class="slot-heading"><h3 class="tab-status ${kind}"><span class="status-icon" aria-hidden="true">${symbol}</span>${status}</h3>${!connected && selected ? '<span class="sub">연결 전</span>' : ''}</div>`;
+  let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="${label(i)} 탭 소리"><div class="slot-heading"><h3 class="tab-status ${kind}"><span class="status-icon" aria-hidden="true">${symbol}</span>${status}</h3>${button(`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>`, `remove-slot:${i}`, "quiet remove-slot", connecting.size > 0, `aria-label="${label(i)} 탭 삭제" title="탭 삭제"`)}</div>`;
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
-  html += `<label class="stack slot-preset"><span class="sub">알림 프리셋</span><select data-profile="${i}" aria-label="${label(i)} 탭 알림 프리셋"><option value="" ${!slot.profileId ? "selected" : ""}>알림 사용 안 함</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI 자동 설정</option>${state.profiles.map(profile => `<option value="${escapeHTML(profile.id)}" ${slot.profileId === profile.id ? "selected" : ""}>${escapeHTML(profile.name)}</option>`).join("")}</select></label>`;
+  html += `<label class="stack slot-preset"><span class="sub">알림 프리셋</span><select data-profile="${i}" aria-label="${label(i)} 탭 알림 프리셋"><option value="" ${!slot.profileId ? "selected" : ""}>알림 사용 안 함</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI 자동 설정</option>${state.profiles.filter(profile => profile.id.startsWith("custom-")).map(profile => `<option value="${escapeHTML(profile.id)}" ${slot.profileId === profile.id ? "selected" : ""}>${escapeHTML(profile.name)}</option>`).join("")}</select></label>`;
   html += renderAlertSummary(slot, i);
   html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 볼륨</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 볼륨"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
@@ -111,18 +111,17 @@ function renderReturn() {
 function renderAlertSummary(slot, i) {
   const setup = slot.alertSetup;
   if (slot.profileId !== "auto") return "";
-  const enabled = setup?.profile?.rules.filter(rule => rule.enabled).length ?? 0;
   const status = setup?.status === "generating" ? setup.phase === "scanning" ? "연결된 탭의 설명과 본문을 읽는 중…" : "AI가 이 탭의 알림 조건을 만드는 중…"
     : setup?.status === "error" ? `조건 생성 실패: ${setup.error}`
-    : setup?.profile ? `${setup.profile.name} · ${enabled ? `${enabled}개 조건 사용 중` : "알림 조건 모두 꺼짐"}` : "이 탭의 알림을 준비하고 있어요.";
+    : setup?.profile ? setup.profile.name : "이 탭의 알림을 준비하고 있어요.";
   const source = setup?.edited ? "직접 수정한 조건을 유지합니다." : setup?.scanError || (setup?.source === "transcript" ? "최근 자막을 참고해 보완했어요." : setup?.source === "page" ? "탭의 설명·본문·표시된 자막을 참고했어요. 재생 자막이 모이면 한 번 보완합니다." : "탭 제목으로 제안하고, 자막이 모이면 한 번 보완합니다.");
-  return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${setup?.request ? `<p class="sub">내 요청: ${escapeHTML(setup.request).slice(0, 160)}</p>` : ""}${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet")}</div>`;
+  return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${setup?.request ? `<p class="sub">내 요청: ${escapeHTML(setup.request).slice(0, 160)}</p>` : ""}${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet alert-edit-link")}</div>`;
 }
 
 function renderAlertEditor() {
   const { index, tabId, profile } = alertEditor;
   const slot = state.slots[index];
-  if (slot.tabId !== tabId) return `<div class="notice">연결된 탭이 바뀌었습니다.</div>${button("돌아가기", "close-alert")}`;
+  if (slot?.tabId !== tabId) return `<div class="notice">연결된 탭이 바뀌었습니다.</div>${button("돌아가기", "close-alert")}`;
   let html = button("← 돌아가기", "close-alert", "quiet") + `<h3>소리 ${label(index)} · 알림 조건</h3><p class="sub">${escapeHTML(slot.title)}</p><p class="sub">체크한 상황 중 하나가 실제로 발생하면 대기 중에 알려드려요. 저장한 수정 내용은 AI가 덮어쓰지 않습니다.</p>`;
   if (slot.alertSetup?.status === "generating") html += `<div class="notice" role="status">AI가 조건을 제안하고 있어요. 기다리는 동안 직접 작성해도 됩니다.</div>`;
   if (slot.alertSetup?.status === "error") html += `<div class="notice" role="alert">${escapeHTML(slot.alertSetup.error)} 직접 작성하거나 다시 시도해 주세요.</div>`;
@@ -145,7 +144,7 @@ function volumeSetting(name, title) {
 }
 function renderGeneral() {
   return `<section class="settings-section"><h3>소리</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 자동 전환")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
-    <section class="settings-section"><h3>감지 · 알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}<label class="setting-row"><span>감지 민감도</span><select data-setting-select="sensitivity" aria-label="감지 민감도">${[["low", "낮음"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${state.settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label></div></section>
+    <section class="settings-section"><h3>감지 · 알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}</div></section>
     <details class="settings-advanced" data-profile-detail="advanced"><summary>고급 설정</summary><div class="settings-card">${settingsSwitch("screen", "화면 변화 감지", "이미지가 서버로 전송돼요. 변경 후 탭을 다시 연결해 주세요.")}</div><p class="sub">단축키: Ctrl+Shift+K 연결 · Ctrl+Shift+→ 집중 전환 · Ctrl+Shift+← 복귀</p></details>`;
 }
 function renderPresetList() {
@@ -175,6 +174,8 @@ function renderEntrust() {
 
 function render() {
   if (!state) return;
+  const toggle = document.getElementById("settings-toggle");
+  if (toggle) { toggle.textContent = tab === "entrust" ? "메인" : "세부설정"; }
   const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
   let html = alertEditor ? renderAlertEditor() : picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
   const message = notice || state.status;
@@ -187,6 +188,8 @@ async function dispatch(action) {
   const i = Number(arg);
   notice = "";
   switch (name) {
+    case "toggle-settings":
+      return dispatch(tab === "entrust" ? "tab:sound" : "tab:entrust");
     case "tab":
       generation++; busy = false;
       alertEditor = null;
@@ -198,7 +201,16 @@ async function dispatch(action) {
       addingSlot = true; render();
       const reply = await act("add-slot");
       addingSlot = false;
-      if (reply?.ok) picker = reply.result;
+      if (reply?.ok) picker = null;
+      return render();
+    }
+    case "remove-slot": {
+      if (connecting.size) return;
+      const previous = selections.slice();
+      selections.splice(i, 1);
+      const reply = await act("remove-slot", { index: i });
+      if (!reply?.ok) selections = previous;
+      else await transport.saveSelections(selections);
       return render();
     }
     case "pick":
@@ -381,7 +393,7 @@ transport.subscribe((nextState) => {
     return source;
   });
   if (removedSelection) void transport.saveSelections(selections);
-  const closedEditor = alertEditor && state.slots[alertEditor.index].tabId !== alertEditor.tabId;
+  const closedEditor = alertEditor && state.slots[alertEditor.index]?.tabId !== alertEditor.tabId;
   if (closedEditor) alertEditor = null;
   if (alertEditor && !alertEditor.dirty) {
     const slot = state.slots[alertEditor.index];
