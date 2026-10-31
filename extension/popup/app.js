@@ -19,6 +19,7 @@ let generation = 0;
 let confirmDelete = false;
 const connecting = new Set();
 let addingSlot = false;
+let renderedPage = null;
 const sourceUsedElsewhere = (id, index) => state.slots.some((slot, i) => i !== index && slot.tabId === id) || selections.some((source, i) => i !== index && source?.id === id);
 
 const escapeHTML = (value) =>
@@ -90,10 +91,9 @@ function renderSlot(slot, i) {
 }
 
 function renderSound() {
-  const connected = state.slots.filter((slot) => slot.tabId !== null).length;
   let html = "";
 
-  html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / ${state.slots.length} 연결됨</span></div>`;
+  html += `<div class="settings-top sound-top"><span aria-hidden="true"></span><h3>소리 구성</h3></div>`;
   if (state.peek !== null) {
     html += `<div class="notice"><h3>${label(state.peek)}를 잠깐 확인 중</h3><div class="two">${button("확인 끝 · 복귀", "restore", "solid")}${button("계속 집중", "keep")}</div></div>`;
   }
@@ -137,7 +137,7 @@ function volumeSetting(name, title) {
   return `<label class="setting-volume"><span class="row"><span>${title}</span><output id="setting-${name}">${state.settings[name]}%</output></span><input type="range" min="0" max="100" value="${state.settings[name]}" data-setting-range="${name}" aria-label="${title}"></label>`;
 }
 function renderGeneral() {
-  return `<section class="settings-section"><h3>소리</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 자동 전환")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
+  return `<section class="settings-section sound-settings"><h3>소리</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 자동 전환")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
     <section class="settings-section"><h3>감지 · 알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}</div></section>
     <details class="settings-advanced" data-profile-detail="advanced"><summary>고급 설정</summary><div class="settings-card">${settingsSwitch("screen", "화면 변화 감지", "이미지가 서버로 전송돼요. 변경 후 탭을 다시 연결해 주세요.")}</div><p class="sub">단축키: Ctrl+Shift+K 연결 · Ctrl+Shift+→ 집중 전환 · Ctrl+Shift+← 복귀</p></details>`;
 }
@@ -145,7 +145,7 @@ function renderPresetList() {
   const custom = state.profiles.filter(profile => profile.id.startsWith("custom-"));
   const builtIn = state.profiles.filter(profile => !profile.id.startsWith("custom-"));
   const items = profiles => profiles.map(profile => button(`<span class="preset-copy"><strong>${escapeHTML(profile.name)}</strong><span class="sub">${escapeHTML(profile.condition || "알림 조건 확인하기")}</span></span><span aria-hidden="true">›</span>`, `preset-view:${state.profiles.indexOf(profile)}`, "preset-item")).join("");
-  return `<section class="settings-section"><div class="preset-section-heading"><h3>내 프리셋 <span class="count">${custom.length}</span></h3>${button("＋ 만들기", "preset-new", "preset-add")}</div>${custom.length ? `<div class="preset-list">${items(custom)}</div>` : `<div class="preset-empty"><p>나만의 알림을 만들어보세요</p><p class="sub">원하는 순간을 적으면 AI가 초안을 만들어요.</p>${button("첫 프리셋 만들기", "preset-new", "quiet first-preset-link")}</div>`}</section><section class="settings-section"><h3>기본 프리셋</h3><div class="preset-list">${items(builtIn)}</div></section>`;
+  return `<section class="settings-section"><div class="preset-section-heading"><h3>내 프리셋 <span class="count">${custom.length}</span></h3>${button("＋ 만들기", "preset-new", "preset-add")}</div>${custom.length ? `<div class="preset-list">${items(custom)}</div>` : `<div class="preset-empty"><p>나만의 알림을 만들어보세요</p><p class="sub">원하는 순간을 적으면 AI가 초안을 만들어요.</p>${button("첫 프리셋 만들기", "preset-new", "quiet first-preset-link")}</div>`}</section><section class="settings-section"><h3>기본 프리셋</h3><div class="preset-list built-in-presets">${items(builtIn)}</div></section>`;
 }
 function renderPresetDetail() {
   const profile = state.profiles.find(item => item.id === selectedPreset);
@@ -169,11 +169,15 @@ function renderEntrust() {
 function render() {
   if (!state) return;
   const toggle = document.getElementById("settings-toggle");
-  if (toggle) { toggle.textContent = tab === "entrust" ? "메인" : "세부설정"; }
+  if (toggle) { toggle.textContent = "세부설정"; }
   const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
   let html = alertEditor ? renderAlertEditor() : picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
   const message = notice || state.status;
+  const page = alertEditor ? "alert" : picker !== null ? `picker:${picker}` : tab === "entrust" ? `${tab}:${settingsTab}:${presetPage}` : tab;
+  const scrollTop = page === renderedPage ? main.scrollTop : 0;
   main.innerHTML = html + `<p id="notice" class="status" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
+  main.scrollTop = scrollTop;
+  renderedPage = page;
   main.querySelectorAll("details[data-profile-detail]").forEach(item => { item.open = openProfiles.has(item.dataset.profileDetail); });
   const dialog = main.querySelector(".delete-dialog");
   if (dialog) {
