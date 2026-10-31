@@ -28,7 +28,15 @@ if (!globalThis.catchSoundInboxLoaded) {
     if (className) node.className = className;
     return node;
   }
+  function removeStaleHosts() {
+    // Extension reloads create a fresh isolated world, but leave its old DOM behind.
+    document.querySelectorAll('[id="catchsound-dnd-inbox"]').forEach(node => {
+      if (node !== host) node.remove();
+    });
+  }
+  removeStaleHosts();
   function mount() {
+    removeStaleHosts();
     host = element('div');
     host.id = 'catchsound-dnd-inbox';
     host.style.cssText = 'position:fixed;left:20px;bottom:20px;z-index:2147483647';
@@ -98,6 +106,7 @@ if (!globalThis.catchSoundInboxLoaded) {
   }
   function showPanel(){place();panel.hidden=!expanded;trigger.setAttribute('aria-expanded',String(expanded));}
   function update(data) {
+    removeStaleHosts();
     if (!data?.enabled) { host?.remove(); host=null; expanded=false; return; }
     if (!host) mount();
     const countReady = data.countReady !== false && Array.isArray(data.items);
