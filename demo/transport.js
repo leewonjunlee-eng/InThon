@@ -94,7 +94,11 @@ export function createPreviewTransport() {
     }
     media.set(tabId, { audio, node });
     state.slots[index] = { ...emptySlot(state.settings), tabId, title: source.title, host: source.host, topic: source.topic, profileId: "auto" };
-    if (state.manual === null) state.manual = index;
+    if (!state.slots.some(slot => slot.tabId !== null && slot.role === "main")) {
+      state.manual = index;
+      state.peek = null;
+      state.snapshot = null;
+    }
     state.status = "샘플 음원 재생 중 · 실제 탭 캡처는 Chrome 확장에서 사용하세요.";
   }
   async function send(cmd, payload = {}) {

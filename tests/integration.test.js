@@ -68,6 +68,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(engineCommands.find(item => item.cmd === 'capture').screen, false, 'default connection captures audio only');
     assert.equal(latest.slots[0].role, 'main');
     assert.equal(latest.slots[0].profileId, 'auto');
+    assert.equal(latest.manual, 0, 'first connection establishes focus');
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(latest.slots[0].alertSetup.status, 'ready');
     assert.deepEqual(scannedTabs, [11]);
@@ -84,6 +85,9 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal((await send('connect', { index: 0, tabId: 12 })).ok, false, 'cannot overwrite a connected slot');
     assert.equal((await send('connect', { index: 1, tabId: 12 })).ok, true);
     assert.equal((await send('connect', { index: 1, tabId: 12 })).ok, false, 'cannot capture twice');
+    assert.equal(latest.manual, 0, 'second connection preserves existing focus');
+    assert.equal(latest.slots[1].role, 'standby');
+    await send('auto');
     await send('pin', { index: 1 });
     await send('mute', { index: 0 });
     await send('focus', { index: 0 });
@@ -228,6 +232,12 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots.length, 0);
     assert.equal((await send('add-slot')).result, 0);
     assert.equal(latest.slots[0].tabId, null);
+    windowFocused = false;
+    activeId = 21;
+    assert.equal((await send('connect', { index: 0, tabId: 21 })).ok, true);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(latest.manual, 0, 'connecting with no focused slot establishes focus even outside Chrome');
+    assert.equal(latest.slots[0].role, 'main');
 
   } finally { delete globalThis.chrome; globalThis.fetch = originalFetch; }
 });

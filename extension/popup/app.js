@@ -94,18 +94,12 @@ function renderSound() {
   let html = "";
 
   html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / ${state.slots.length} 연결됨</span></div>`;
-  if (state.returnSummary) html += renderReturn();
   if (state.peek !== null) {
     html += `<div class="notice"><h3>${label(state.peek)}를 잠깐 확인 중</h3><div class="two">${button("확인 끝 · 복귀", "restore", "solid")}${button("계속 집중", "keep")}</div></div>`;
   }
   html += state.slots.map(renderSlot).join("");
   html += button(addingSlot ? "추가 중…" : "＋ 탭 추가", "add-slot", "full add-slot", addingSlot);
   return html;
-}
-
-function renderReturn() {
-  const item = state.returnSummary;
-  return `<div class="notice"><h3>놓친 내용 · 소리 ${label(item.slot)} (${item.minutes}분)</h3><p>${escapeHTML(item.summary)}</p>${button("확인", "clear-return", "quiet")}</div>`;
 }
 
 function renderAlertSummary(slot, i) {
@@ -158,7 +152,7 @@ function renderPresetDetail() {
   if (!profile) return `${button("← 프리셋", "preset-back", "quiet")}<p>이 프리셋을 찾을 수 없어요.</p>`;
   const custom = profile.id.startsWith("custom-");
   const connected = state.slots.map((slot, i) => slot.tabId !== null ? button(`<span>${label(i)} · ${escapeHTML(slot.title)}</span><span>${slot.profileId === profile.id ? "적용 중" : "적용"}</span>`, `preset-apply:${i}`, "preset-apply", slot.profileId === profile.id) : "").join("");
-  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${profile.summaryFocus ? `<section class="settings-section"><h3>요약에서 확인할 내용</h3><p>${escapeHTML(profile.summaryFocus)}</p></section>` : ""}<section class="settings-section"><h3>연결된 탭에 적용</h3>${connected || '<p class="sub">소리 화면에서 탭을 연결하면 적용할 수 있어요.</p>'}</section><div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<div class="notice stack"><p>이 프리셋을 삭제할까요? 적용 중인 탭의 알림도 해제돼요.</p><div class="two">${button("삭제하기", "preset-delete-confirm", "danger")}${button("취소", "preset-delete-cancel")}</div></div>` : ""}`;
+  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${profile.summaryFocus ? `<section class="settings-section"><h3>요약에서 확인할 내용</h3><p>${escapeHTML(profile.summaryFocus)}</p></section>` : ""}<section class="settings-section"><h3>연결된 탭에 적용</h3>${connected || '<p class="sub">소리 화면에서 탭을 연결하면 적용할 수 있어요.</p>'}</section><div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
 }
 function renderPresetCreate() {
   let html = `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${draft ? "내용 확인" : "새 프리셋"}</span><h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
@@ -181,6 +175,15 @@ function render() {
   const message = notice || state.status;
   main.innerHTML = html + `<p id="notice" class="status" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
   main.querySelectorAll("details[data-profile-detail]").forEach(item => { item.open = openProfiles.has(item.dataset.profileDetail); });
+  const dialog = main.querySelector(".delete-dialog");
+  if (dialog) {
+    dialog.addEventListener("cancel", event => {
+      event.preventDefault();
+      if (!busy) { confirmDelete = false; render(); }
+    });
+    dialog.showModal();
+  }
+
 }
 
 async function dispatch(action) {
@@ -307,11 +310,18 @@ async function dispatch(action) {
       return;
     }
     case "preset-delete": confirmDelete = true; return render();
-    case "preset-delete-cancel": confirmDelete = false; return render();
-    case "preset-delete-confirm": {
-      const reply = await act("delete-profile", { id: selectedPreset });
-      if (reply?.ok) { presetPage = "list"; confirmDelete = false; notice = "프리셋을 삭제했어요."; render(); }
+    case "preset-delete-cancel":
+      if (busy) return;
+      confirmDelete = false; render();
+      main.querySelector('[data-action="preset-delete"]')?.focus();
       return;
+    case "preset-delete-confirm": {
+      if (busy) return;
+      busy = true; render();
+      const reply = await act("delete-profile", { id: selectedPreset });
+      busy = false;
+      if (reply?.ok) { presetPage = "list"; confirmDelete = false; notice = "프리셋을 삭제했어요."; }
+      return render();
     }
     case "draft": {
       if (busy) return;
@@ -337,7 +347,7 @@ async function dispatch(action) {
       render();
       const reply = await act("save-profile", { profile });
       busy = false;
-      if (reply?.ok) { selectedPreset = profile.id; draft = null; presetPage = "detail"; notice = "프리셋을 저장했어요."; }
+      if (reply?.ok) { selectedPreset = null; draft = null; presetPage = "list"; notice = "프리셋을 저장했어요."; }
       return render();
     }
     default:
@@ -403,6 +413,6 @@ transport.subscribe((nextState) => {
     if (slot.tabId !== null) selections[i] = { id: slot.tabId, title: slot.title, host: slot.host };
   });
   const editing = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
-  if (!editing || removedSelection || closedEditor) render();
+  if ((!editing || removedSelection || closedEditor) && !confirmDelete) render();
 });
 act("state");
