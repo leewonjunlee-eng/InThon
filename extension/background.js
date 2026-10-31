@@ -42,11 +42,12 @@ async function commit() {
   const { settings, rules, customProfiles, seenGuide, ...session } = state;
   await chrome.storage.session.set({ session });
   await chrome.storage.local.set({ saved: { settings, rules, customProfiles, seenGuide } });
-  const audible = await chrome.tabs.query({ audible: true });
+  const available = (await chrome.tabs.query({})).filter(tab => /^https?:/.test(tab.url || ""));
+  const audible = available.filter(tab => tab.audible);
   const others = audible
     .filter((tab) => !state.slots.some((slot) => slot.tabId === tab.id))
     .map((tab) => ({ id: tab.id, title: tab.title, host: hostOf(tab.url) }));
-  chrome.runtime.sendMessage({ to: "ui", state: { ...state, audible: others, profiles: profiles() } }).catch(() => {});
+  chrome.runtime.sendMessage({ to: "ui", state: { ...state, audible: others, available: available.map(tab => ({ id: tab.id, title: tab.title, host: hostOf(tab.url), audible: tab.audible })), profiles: profiles() } }).catch(() => {});
 }
 
 const profiles = () => [...PROFILES, ...state.customProfiles];
@@ -102,6 +103,7 @@ async function topicFor(tab) {
 
 async function pushOutputs() {
   const { slots, settings } = state;
+  if (!slots.some(slot => slot.tabId !== null)) return;
   await toEngine("duck", { on: settings.duck });
   for (const slot of slots) {
     if (slot.tabId === null) continue;
@@ -142,7 +144,7 @@ async function refreshView() {
 async function connectTab(tab, index) {
   if (slotIndex(tab.id) !== -1) throw new Error("이미 연결된 탭입니다.");
   const free = index ?? state.slots.findIndex((slot) => slot.tabId === null);
-  if (free === -1) throw new Error("슬롯이 모두 찼습니다. 하나를 해제해 주세요.");
+  if (![0, 1].includes(free) || state.slots[free].tabId !== null) throw new Error("슬롯이 모두 찼습니다. 하나를 해제해 주세요.");
   await ensureOffscreen();
   const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
   await toEngine("capture", { streamId, tabId: tab.id });
@@ -264,8 +266,9 @@ const commands = {
     await refreshView();
     await commit();
   },
-  connect: async ({ index }) => {
+  connect: async ({ index, tabId }) => {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (!tab || (tabId !== undefined && tab.id !== tabId)) throw new Error("선택한 탭으로 이동한 뒤 확장 아이콘을 다시 눌러 연결하세요.");
     await connectTab(tab, index);
   },
   disconnect: ({ index }) => disconnect(index),

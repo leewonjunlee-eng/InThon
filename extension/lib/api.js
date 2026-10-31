@@ -8,7 +8,10 @@ export function createApi(getConfig) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(20000),
     });
-    if (!response.ok) throw new Error(`server ${response.status}`);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `server ${response.status}`);
+    }
     return response.json();
   }
   return {

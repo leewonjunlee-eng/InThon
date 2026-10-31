@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Catch Sound</title>
+    <title>catchsound · A/B 오디오</title>
     <link rel="stylesheet" href="styles.css" />
-    <script defer src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </head>
   <body>
     <div id="ab-mock">
@@ -13,13 +13,21 @@
         <section class="app" aria-label="오디오 조절">
           <header>
             <div>
-              <h2>Catch Sound</h2>
-              <p class="sub">보는 일에 맞춰 듣고, 나머지는 맡기세요</p>
+              <h2>catchsound</h2>
+              <p class="sub">소리의 자리를 먼저 골라주세요</p>
             </div>
+            <span class="badge">A / B</span>
           </header>
           <main id="ab-content"></main>
-          <footer>듣기 음소거는 내 마이크를 끄지 않습니다.</footer>
+          <footer>
+            A·B는 소리를 구분하는 슬롯입니다. 귀 방향과는 별개예요.<br />듣기
+            음소거는 내 마이크를 끄지 않습니다.
+          </footer>
         </section>
+        <p class="caption">
+          웹 체험 · 샘플 소리를 조절합니다. 실제 탭 연결은 Chrome 확장에서 사용하세요.
+        </p>
+        <noscript>catchsound를 사용하려면 JavaScript를 켜주세요.</noscript>
       </div>
     </div>
   </body>
