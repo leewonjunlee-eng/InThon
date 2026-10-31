@@ -109,3 +109,10 @@ test("받아쓰기 오차는 긴 단어만 허용하고 짧은 단어는 정확�
   assert.equal(findKeyword("끝내지 않았습니다", ["끝내기"]), null);
   assert.equal(findKeyword("한 번 더 기다려 봅니다", ["한타", "역전", "홈런"]), null);
 });
+
+test("AI가 다시 확인하는 표현은 받아쓰기 오류를 더 넓게 허용한다", () => {
+  assert.equal(findKeyword("드레곤을 챙깁니다", ["드래곤"]), null);
+  assert.equal(findKeyword("드레곤을 챙깁니다", ["드래곤"], { loose: true }), "드래곤");
+  assert.equal(findKeyword("켄타필입니다", ["펜타킬"], { loose: true }), "펜타킬");
+  assert.equal(findKeyword("오늘 날씨가 참 좋습니다", ["드래곤", "펜타킬", "득점권"], { loose: true }), null);
+});

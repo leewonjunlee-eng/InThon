@@ -140,10 +140,13 @@ const compact = (text) => text.replace(/\s+/g, "").toLowerCase();
 
 // 글자를 자모로 풀어 비교한다. "펜타킬"과 "펜타클"은 음절은 달라도 자모 하나 차이다.
 const jamo = (text) => compact(text).normalize("NFD");
-const FUZZY_MIN_JAMO = 8; // 이보다 짧은 단어는 "끝내기/끝내지"처럼 뜻이 달라지기 쉬워 정확히 맞아야 한다.
+// 바로 알리는 단어는 "끝내기/끝내지"처럼 뜻이 바뀌지 않게 긴 단어만 자모 하나를 봐준다.
+const strictTypos = (length) => length >= 8 ? 1 : 0;
+// AI가 다시 확인하는 표현은 잘못 걸려도 판단 한 번이면 되므로 더 느슨하게 찾는다.
+const looseTypos = (length) => length >= 8 ? 2 : length >= 5 ? 1 : 0;
 
-// 글 어딘가에 단어와 자모 편집거리 1 이내인 부분이 있는지 본다(Sellers 근사 문자열 검색).
-function nearlyIncludes(text, word) {
+// 글 어딘가에 단어와 자모 편집거리 allowed 이내인 부분이 있는지 본다(Sellers 근사 문자열 검색).
+function nearlyIncludes(text, word, allowed) {
   let row = Array.from({ length: word.length + 1 }, (_, i) => i);
   for (const letter of text) {
     const next = [0];
@@ -151,17 +154,21 @@ function nearlyIncludes(text, word) {
       next[i] = Math.min(row[i] + 1, next[i - 1] + 1, row[i - 1] + (word[i - 1] === letter ? 0 : 1));
     }
     row = next;
-    if (row[word.length] <= 1) return true;
+    if (row[word.length] <= allowed) return true;
   }
   return false;
 }
 
-export function findKeyword(text, keywords) {
+export function findKeyword(text, keywords, { loose = false } = {}) {
   const haystack = compact(text);
   const exact = keywords.find((word) => haystack.includes(compact(word)));
   if (exact) return exact;
   const letters = jamo(text);
-  return keywords.find((word) => jamo(word).length >= FUZZY_MIN_JAMO && nearlyIncludes(letters, jamo(word))) ?? null;
+  const typos = loose ? looseTypos : strictTypos;
+  return keywords.find((word) => {
+    const letter = jamo(word);
+    return typos(letter.length) > 0 && nearlyIncludes(letters, letter, typos(letter.length));
+  }) ?? null;
 }
 
 const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];

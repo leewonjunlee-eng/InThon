@@ -1,6 +1,9 @@
 import { numberConditions } from "./presets.js";
 // 판단 서버 호출. API 키는 서버에만 있고 확장에는 데모 토큰만 둔다.
 import { normalizeConnection } from "./connection.js";
+// ponytail: 공용 서버가 배포 제한에 걸려 프롬프트 대신 요청 칸으로 넘긴다. 배포되면 서버 프롬프트만으로 충분하다.
+const PHRASE_HINT = "알림 범위는 그대로 두고 watchPhrases만 이 분야 승부처와 공지에 쓰는 2~6자 짧은 핵심 단어로 12개 쓴다. 문장이나 text의 평범한 말은 쓰지 않는다.";
+
 export function createApi(getConfig) {
   async function fetchServer(url, init) {
     try { return await fetch(url, init); }
@@ -26,7 +29,7 @@ export function createApi(getConfig) {
     const response = await fetchServer(serverUrl + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(token ? { "X-Demo-Token": token } : {}) },
-      body: JSON.stringify(body),
+      body: JSON.stringify(path === "/suggest-profile" && !body.request ? { ...body, request: PHRASE_HINT } : body),
       signal: AbortSignal.timeout(path === "/suggest-profile" ? 65000 : 20000),
     });
     if (!response.ok) {

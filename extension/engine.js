@@ -301,7 +301,7 @@ export class AudioEngine {
     // 긴 말은 여러 줄로 나뉘어 기록되므로 앞줄 끝과 이어서 찾는다. 앞줄에서 이미 찾은 단어는 뺀다.
     const before = channel.lines.at(-1);
     const tail = before && !before.text.startsWith("(") && now - before.t < TAIL_MS ? before.text.slice(-TAIL_CHARS) : "";
-    const find = (words = []) => findKeyword(tail + text, words.filter(word => !findKeyword(tail, [word])));
+    const find = (words = [], options) => findKeyword(tail + text, words.filter(word => !findKeyword(tail, [word])), options);
     this.addLine(channel, text);
     if (channel.profile.contextOnly) return;
     const keyword = find(channel.profile.keywords);
@@ -309,7 +309,7 @@ export class AudioEngine {
       this.trace(channel, `키워드 "${keyword}" 인식, 바로 알림`);
       return this.moment(channel, { kind: "keyword", keyword });
     }
-    const phrase = find(channel.profile.watchPhrases);
+    const phrase = find(channel.profile.watchPhrases, { loose: true });
     if (phrase && now - (channel.lastWatchAt ?? 0) >= WATCH_GAP_MS) {
       channel.lastWatchAt = now;
       this.moment(channel, { kind: "watch", phrase });

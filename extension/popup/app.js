@@ -101,7 +101,7 @@ function renderRecognition(slot) {
   const mine = list => (list ?? []).filter(line => (line.tabId ?? line.id) === slot.tabId).slice(-6);
   const items = (lines, empty) => lines.length ? lines.map(line => `<li><span class="sub">${escapeHTML(line.time ?? "")}</span> ${escapeHTML(line.text)}</li>`).join("") : `<li class="sub">${empty}</li>`;
   const words = list => escapeHTML((list ?? []).join(", ") || "없음");
-  return `<details class="settings-advanced recognition" data-profile-detail="recognition-${slot.tabId}"><summary>인식 확인</summary><div class="stack"><p class="sub">${status}</p><p class="sub">바로 알림 키워드: ${words(profile?.keywords)}</p><p class="sub">AI 확인 표현: ${words(profile?.watchPhrases)}</p><strong>들은 말</strong><ul class="recognition-log">${items(mine(state.transcript), "아직 인식된 말이 없습니다.")}</ul><strong>판단 기록</strong><ul class="recognition-log">${items(mine(state.trace), "아직 판단 기록이 없습니다.")}</ul></div></details>`;
+  return `<details class="settings-advanced recognition" data-profile-detail="recognition-${slot.tabId}"><summary>인식 확인</summary><div class="stack"><p class="sub">${status}</p><p class="sub">바로 알림 키워드: ${words(profile?.keywords)}</p><p class="sub">AI 확인 키워드: ${words(profile?.watchPhrases)}</p><strong>들은 말</strong><ul class="recognition-log">${items(mine(state.transcript), "아직 인식된 말이 없습니다.")}</ul><strong>판단 기록</strong><ul class="recognition-log">${items(mine(state.trace), "아직 판단 기록이 없습니다.")}</ul></div></details>`;
 }
 
 function renderSound() {
@@ -128,7 +128,7 @@ function renderAlertSummary(slot, i) {
 
 function presetFields(profile, target) {
   const condition = target === "alert" ? numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")) : profile.condition;
-  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>감지 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML((profile.keywords ?? profile.watchPhrases ?? []).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요. 이 단어가 들리면 AI 확인 없이 바로 알려요.</span></label>`;
+  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>감지 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML(((target === "alert" ? profile.watchPhrases : profile.keywords) ?? []).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요. ${target === "alert" ? "AI가 추천한 단어예요. 비슷하게 들려도 AI가 확인해서 알려요." : "이 단어가 들리면 AI 확인 없이 바로 알려요."}</span></label>`;
 }
 
 function presetKeywordDetail(profile) {
@@ -386,7 +386,7 @@ root.addEventListener("input", (event) => {
   if (alertEditor && dataset.alertRequest !== undefined) { alertEditor.request = value; alertEditor.dirty = true; }
   if (alertEditor && (dataset.alertField || dataset.alertRule !== undefined || dataset.alertEnabled !== undefined)) {
     alertEditor.dirty = true;
-    if (dataset.alertField === "keywords") alertEditor.profile.keywords = value.split(",").map(word => word.trim()).filter(Boolean);
+    if (dataset.alertField === "keywords") alertEditor.profile.watchPhrases = value.split(",").map(word => word.trim()).filter(Boolean);
     else if (dataset.alertField === "condition") alertEditor.profile.rules = [{ text: value, enabled: true }];
     else if (dataset.alertField) alertEditor.profile[dataset.alertField] = value;
     if (dataset.alertRule !== undefined) alertEditor.profile.rules[Number(dataset.alertRule)].text = value;

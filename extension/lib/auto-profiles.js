@@ -5,7 +5,7 @@ export function cleanAlertProfile(value) {
     text: text(rule.text, 2000), enabled: rule.enabled !== false,
   })).filter(rule => rule.text);
   if (!rules.length) throw new Error("알림 조건을 하나 이상 입력해 주세요.");
-  const watchPhrases = (Array.isArray(value.watchPhrases) ? value.watchPhrases : []).map(phrase => text(phrase, 20)).filter(Boolean).slice(0, 12);
+  const watchPhrases = (Array.isArray(value.watchPhrases) ? value.watchPhrases : []).map(phrase => text(phrase, 20)).filter(Boolean).slice(0, 20);
   // keywords는 AI 확인 없이 바로 알리므로 사람이 정한 단어만 둔다. AI가 고른 표현은 watchPhrases로 판단을 거친다.
   const keywords = (Array.isArray(value.keywords) ? value.keywords : []).map(word => text(word, 100)).filter(Boolean).slice(0, 30);
   return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: rules.map(rule => rule.text).join("\n").slice(0, 300), rules, watchPhrases, keywords };
