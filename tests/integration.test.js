@@ -232,6 +232,12 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(inboxMessages.at(-1).inbox.items[0].id, 'quiet-event');
     await emit({ type: 'moment-update', moment: { ...moment, id: 'quiet-event', summary: '보완된 요약' } });
     assert.equal(latest.dndInbox[0].summary, '보완된 요약');
+    await emit({ type: 'moment', moment: { ...moment, id: 'keep-quiet-event' } });
+    const deleted = await send('delete-dnd-item', { id: 'quiet-event' });
+    assert.deepEqual(deleted.result.items.map(item => item.id), ['keep-quiet-event']);
+    await emit({ type: 'moment-update', moment: { ...moment, id: 'quiet-event', summary: '늦은 요약' } });
+    assert.deepEqual(latest.dndInbox.map(item => item.id), ['keep-quiet-event'], 'deleted item stays deleted after delayed summary');
+    assert.equal(inboxMessages.at(-1).inbox.items.length, 1, 'deletion is shared across tabs');
     const cleared = await send('clear-dnd-inbox');
     assert.deepEqual(cleared.result.items, []);
     assert.equal(latest.dndInbox.length, 0);

@@ -46,6 +46,7 @@ if (!globalThis.catchSoundInboxLoaded) {
       :host{font:14px/1.5 system-ui,sans-serif;color:#242432}*{box-sizing:border-box}button{font:inherit;cursor:pointer}button:focus-visible{outline:3px solid #b6aaff;outline-offset:3px}[hidden]{display:none!important}
       .bell{position:relative;display:grid;place-items:center;width:56px;height:56px;padding:0;border:0;border-radius:50%;background:#6254d8;color:white;box-shadow:0 6px 20px #30236a33}.bell{touch-action:none;user-select:none;cursor:grab}.bell.dragging{cursor:grabbing}.bell svg{display:block;width:26px;height:26px}.badge{position:absolute;right:-3px;top:-5px;display:grid;place-items:center;min-width:23px;height:23px;padding:0 5px;border:2px solid white;border-radius:20px;background:#4435ab;color:white;font-size:11px;font-weight:700}
       .panel{position:absolute;bottom:70px;left:0;width:min(390px,calc(100vw - 40px));max-height:min(650px,calc(100dvh - 110px));display:flex;flex-direction:column;border:1px solid #dedee8;border-radius:16px;background:#f5f4fa;box-shadow:0 14px 44px #24243226;overflow:hidden}.head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;background:white;border-bottom:1px solid #eeedf4}.head strong{font-size:15px}.close{border:0;background:none;color:#737385;font-size:23px;line-height:1;padding:4px 8px}.sub{margin:4px 0 0;color:#737385;font-size:12px}
+      .item-actions{display:flex;align-items:center;gap:6px}.delete-item{border:0;background:transparent;color:inherit;min-width:28px;min-height:28px;padding:2px;font-size:20px;line-height:1;border-radius:6px}.delete-item:hover{background:#80808018}.delete-item:disabled{opacity:.45;cursor:default}
       .list{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:12px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}.item{flex-shrink:0;padding:12px 14px;border:1px solid #dedee8;border-radius:12px;background:white;box-shadow:0 3px 10px #24243208}.meta{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#737385;font-size:11px;margin-bottom:5px}.brand{display:inline-flex;align-items:center;gap:5px;color:#242432;font-size:13px;font-weight:650;letter-spacing:-.3px}.brand img{width:24px;height:24px;object-fit:contain}.source{color:#6254d8;font-size:11px;overflow-wrap:anywhere}.item h3{font-size:15px;line-height:1.35;margin:4px 0}.item p{font-size:12px;line-height:1.5;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.preview{color:#737385;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.item details{margin-top:7px}.item summary{font-size:11px;color:#737385;cursor:pointer;padding:2px 0}.detail-body{margin-top:6px;padding:9px 10px;border-radius:8px;background:#f5f4fa;color:#555566}.detail-body blockquote{margin:8px 0 0;padding-top:8px;border-top:1px solid #dedee8;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.empty{padding:32px 8px;text-align:center;color:#737385;font-size:13px}.foot{padding:12px 16px;border-top:1px solid #eeedf4;background:white}.clear{width:100%;min-height:36px;border:1px solid #dedee8;background:#f8f7fc;color:#6254d8;border-radius:8px}.clear:disabled{opacity:.45;cursor:default}.error{margin:6px 0 0;font-size:12px;color:#b73743}
       @media(prefers-color-scheme:dark){
         :host{color-scheme:dark;color:#e8e7ed}
@@ -137,7 +138,17 @@ if (!globalThis.catchSoundInboxLoaded) {
       const brand=element('span','','brand'), logo=element('img');
       logo.src=chrome.runtime.getURL('icons/brand.png'); logo.alt='';
       brand.append(logo,element('span','CatchSound'));
-      meta.append(brand,element('span',item.time || ''));
+      const actions=element('div','','item-actions'), remove=element('button','×','delete-item');
+      remove.type='button';remove.title='이 알림 삭제';remove.setAttribute('aria-label',`${item.topic || '알림'} 알림 삭제`);
+      remove.onclick=async()=>{
+        remove.disabled=true;error.textContent='';
+        try {
+          const reply=await chrome.runtime.sendMessage({to:'bg',cmd:'delete-dnd-item',id:item.id});
+          if(!reply?.ok)throw new Error(reply?.error || '알림을 삭제하지 못했어요. 다시 시도해 주세요.');
+          if(reply.result)update(reply.result);
+        } catch(e){error.textContent=e.message;remove.disabled=false;}
+      };
+      actions.append(element('span',item.time || ''),remove);meta.append(brand,actions);
       const summary=item.summary || '내용을 정리하고 있어요.';
       const details=element('details'), body=element('div','','detail-body');
       body.append(element('p',summary));

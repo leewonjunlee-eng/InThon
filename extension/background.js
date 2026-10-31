@@ -525,6 +525,13 @@ const commands = {
     await toEngine("retry", { tabId });
     if (state.slots[index].alertSetup?.status === "error") void generateAlerts(index);
   },
+  "delete-dnd-item": async ({ id }) => {
+    if (typeof id !== "string" || !state.dndInbox.some(item => item.id === id)) return inboxState();
+    state.dndInbox = state.dndInbox.filter(item => item.id !== id);
+    closeMoment(id);
+    await commit();
+    return inboxState();
+  },
   "clear-dnd-inbox": async () => {
     const ids = new Set(state.dndInbox.map(item => item.id));
     state.dndInbox = [];
@@ -671,6 +678,7 @@ const commands = {
 async function run(cmd, payload) {
   await load();
   const result = await commands[cmd](payload);
+  if (cmd === "delete-dnd-item") return result;
   // DND is a notification preference: never wait for classification or audio setup.
   if (cmd === "settings" && Object.keys(payload.patch ?? {}).length === 1 && "dnd" in payload.patch) {
     focusSuggestion.update();
