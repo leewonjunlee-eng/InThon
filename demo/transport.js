@@ -32,7 +32,7 @@ export function createPreviewTransport() {
   function focus(index) {
     const slot = state.slots[index];
     if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
-    state.snapshot = snapshot();
+    if (state.manual !== index || state.peek !== null || !state.snapshot) state.snapshot = snapshot();
     state.manual = index;
     state.peek = null;
     state.slots.forEach(item => { item.pinned = false; });

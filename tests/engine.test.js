@@ -49,3 +49,21 @@ test("a pending judgment cannot alert after the profile is edited, focused, or d
     assert.equal(f.events.length, 0);
   }
 });
+
+test("a superseded judgment cannot duplicate a keyword alert or erase its cooldown, even in the same millisecond", async t => {
+  const now = Date.now();
+  t.mock.method(Date, 'now', () => now);
+  for (const outcome of [false, true, 'error']) {
+    let resolve, reject;
+    const f = fixture({ judge: () => new Promise((done, fail) => { resolve = done; reject = fail; }) });
+    const pending = f.engine.moment(f.channel, { kind: 'judge' });
+    await f.engine.moment(f.channel, { kind: 'keyword', keyword: '판매' });
+    const count = f.events.length;
+    assert.equal(f.channel.lastMomentAt, now);
+    if (outcome === 'error') reject(new Error('offline'));
+    else resolve({ important: outcome });
+    await pending;
+    assert.equal(f.events.length, count);
+    assert.equal(f.channel.lastMomentAt, now);
+  }
+});

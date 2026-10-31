@@ -170,6 +170,7 @@ export class AudioEngine {
       const now = Date.now();
       channel.lastMomentAt = now;
       channel.lastMomentKind = "screen";
+      channel.momentAttempt = {};
       this.emit({
         type: "moment",
         moment: { id: `${channel.id}-${now}`, tabId: channel.id, topic: name, time: clock(now), kind: "screen", keyword: null, confident: true, summary, evidence: [] },
@@ -288,28 +289,32 @@ export class AudioEngine {
     channel.lastMomentAt = now;
     channel.lastMomentKind = kind;
     const { condition, summaryFocus, name } = channel.profile;
-    const current = () => this.channels.get(channel.id) === channel && channel.profile && !channel.profile.contextOnly && channel.profile.condition === condition;
+    const attempt = channel.momentAttempt = {};
+    const current = () => channel.momentAttempt === attempt && this.channels.get(channel.id) === channel && channel.profile && !channel.profile.contextOnly && channel.profile.condition === condition;
+    const resetCooldown = () => { if (channel.momentAttempt === attempt) channel.lastMomentAt = 0; };
     const lines = this.recent(channel);
     const text = linesToText(lines);
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
     if (kind === "judge" && !hasSpeech) {
-      if (channel.lastMomentAt === now) channel.lastMomentAt = 0;
+      resetCooldown();
       return;
     }
-    if (channel.profile.requireEvidence && !hasSpeech) { channel.lastMomentAt = 0; return; }
+    if (channel.profile.requireEvidence && !hasSpeech) { resetCooldown(); return; }
     let confident = kind === "keyword";
 
     if (!confident && hasSpeech) {
       try {
         const { important } = await this.api.judge(text, condition);
+        if (channel.momentAttempt !== attempt) return;
         if (!important) {
-          channel.lastMomentAt = 0;
+          resetCooldown();
           return;
         }
         confident = true;
       } catch {
+        if (channel.momentAttempt !== attempt) return;
         if (kind === "judge" || channel.profile?.requireEvidence) {
-          channel.lastMomentAt = 0;
+          resetCooldown();
           return;
         }
       }
@@ -324,7 +329,7 @@ export class AudioEngine {
     };
     // Show the event immediately; enrich this same alert when the model finishes.
     if (!current()) {
-      if (channel.lastMomentAt === now) channel.lastMomentAt = 0;
+      resetCooldown();
       return;
     }
     await this.emit({ type: "moment", moment: { ...moment } });

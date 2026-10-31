@@ -204,7 +204,10 @@ async function focusSlot(index) {
   if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
   await chrome.tabs.get(slot.tabId);
   const [previousTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  state.snapshot = snapshotOf(previousTab ? { tabId: previousTab.id, windowId: previousTab.windowId } : null);
+  const alreadyFocused = state.manual === index && state.peek === null && previousTab?.id === slot.tabId;
+  if (!alreadyFocused || !state.snapshot) {
+    state.snapshot = snapshotOf(previousTab ? { tabId: previousTab.id, windowId: previousTab.windowId } : null);
+  }
   state.manual = index;
   state.peek = null;
   state.slots.forEach(item => { item.pinned = false; });

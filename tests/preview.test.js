@@ -48,6 +48,7 @@ test('preview preserves AI requests, focus/switch/restore, audio controls and di
     await send('focus', { index: 0 });
     assert.equal(state.slots[0].muted, false);
     assert.equal(state.slots[1].pinned, false);
+    await send('focus', { index: 0 });
     await send('restore');
     assert.equal(state.slots[0].muted, true);
     assert.equal(state.slots[1].pinned, true);

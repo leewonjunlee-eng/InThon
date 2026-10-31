@@ -86,6 +86,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[0].muted, false);
     assert.equal(latest.slots[1].pinned, false);
     assert.equal(latest.slots[1].role, 'standby');
+    await send('focus', { index: 0 });
     await send('restore');
     assert.equal(activeId, 12, 'automatic-mode restore must return to the original active tab');
     assert.equal(latest.manual, null);
