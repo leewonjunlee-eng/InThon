@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Catch Sound",
   "version": "0.2.1",
-  "description": "CatchSound로 여러 탭의 소리를 자유롭게 조절하고, 놓치고 싶지 않은 순간에는 알림을 받아보세요. 중요한 순간은 놓치지 않으면서, 지금 하는 일에 온전히 집중할 수 있습니다.",
+  "description": "CatchSound로 여러 탭의 소리를 자유롭게 조절해보세요. 중요한 순간은 놓치지 않으면서, 지금 하는 일에 온전히 집중할 수 있습니다.",
   "minimum_chrome_version": "139",
   "permissions": [
     "activeTab",
