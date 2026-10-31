@@ -77,28 +77,16 @@ function renderSlot(slot, i) {
   return html + "</article>";
 }
 
-function renderView() {
-  const { view } = state;
-  const where = !view.focused ? "크롬 밖에서 작업 중" : `${escapeHTML(view.title).slice(0, 26)}`;
-  const topics = [...new Set([...state.profiles.map((item) => item.name), "과제", "기타"])];
-  const options = topics.map((topic) => `<option ${view.topic === topic ? "selected" : ""}>${escapeHTML(topic)}</option>`).join("");
-  return `<div class="source"><div class="view-heading"><span class="sub">지금 보는 화면</span>${button("세부 설정 (맡기기)", "tab:entrust", "quiet settings-link")}</div><strong>${where}</strong>${view.focused && view.host ? `<label class="sub">이 사이트의 주제 <select data-topic="${escapeHTML(view.host)}"><option value="">자동</option>${options}</select></label>` : ""}</div>`;
-}
-
 function renderSound() {
   const connected = state.slots.filter((slot) => slot.tabId !== null).length;
   let html = "";
 
   html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / 2 연결됨</span></div>`;
-  html += renderView();
   if (state.returnSummary) html += renderReturn();
   if (state.peek !== null) {
     html += `<div class="notice"><h3>${label(state.peek)}를 잠깐 확인 중</h3><div class="two">${button("확인 끝 · 복귀", "restore", "solid")}${button("계속 집중", "keep")}</div></div>`;
   }
   html += state.slots.map(renderSlot).join("");
-  if (connected) {
-    html += `<div class="footer-actions">${button("다른 소리에 집중", "switch", "full", connected < 2)}${button("이전 상태로 복귀", "restore", "full", !state.snapshot)}${button("자동 전환으로 돌아가기", "auto", "full", state.manual === null)}</div>`;
-  }
   return html;
 }
 
