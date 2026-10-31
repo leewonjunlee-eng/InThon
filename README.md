@@ -1,5 +1,16 @@
 # Catch Sound
 
+## 토큰 입력 없이 설치하기
+
+[자동 연결 확장 ZIP 다운로드](https://github.com/leewonjunlee-eng/InThon/raw/refs/heads/feature/shared-ai-server/releases/catch-sound-shared-extension.zip)
+
+1. 위 ZIP을 내려받아 압축을 풉니다. GitHub의 전체 소스 ZIP과는 다른 설치본입니다.
+2. Chrome에서 `chrome://extensions`를 열고 개발자 모드를 켭니다.
+3. 기존 Catch Sound 확장이 있다면 끈 뒤, **압축해제된 확장 프로그램을 로드합니다**를 눌러 압축 푼 폴더를 선택합니다.
+4. 사용할 탭에서 확장을 열고 탭을 연결합니다. 서버 주소·접속 토큰 입력이나 Python 서버 실행은 필요 없습니다.
+
+이 설치본에는 공용 서버 접속 토큰이 포함되어 있습니다. 레블업 API 키는 포함하지 않습니다. AI 기능은 공용 서버가 운영 중이며 포함된 토큰이 유효할 때 사용할 수 있습니다. 서버 토큰 변경 시 설치본을 새로 배포해야 합니다.
+
 보고 있는 일에 맞춰 탭 소리를 메인과 대기로 나누고, 대기 중인 소리를 대신 들어 중요한 순간을 알려 주는 크롬 확장입니다.
 
 기능별 구현 범위와 확인 수준은 [read.md](read.md)에 정리했습니다.
