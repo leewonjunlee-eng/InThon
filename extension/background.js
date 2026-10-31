@@ -209,6 +209,11 @@ async function connectTab(tab, index) {
   state.slots[free] = {
     ...emptySlot(state.settings), tabId: tab.id, title: tab.title, host: hostOf(tab.url), topic, profileId: "auto",
   };
+  if (!state.slots.some(slot => slot.tabId !== null && slot.role === "main")) {
+    state.manual = free;
+    state.peek = null;
+    state.snapshot = null;
+  }
   await applyRoles({ immediate: true });
   void generateAlerts(free);
 }

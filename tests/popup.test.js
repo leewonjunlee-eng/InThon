@@ -4,7 +4,9 @@ import { DEFAULT_SETTINGS, emptySlot } from "../extension/lib/logic.js";
 
 test("the real popup editor keeps unsaved edits during updates and submits enabled conditions", async () => {
   const handlers = new Map(), sent = [], savedSelections = [];
-  const main = { innerHTML: "", querySelectorAll: () => [] };
+  let modalOpened = 0, onCancel;
+  const dialog = { showModal() { modalOpened++; }, addEventListener(_, callback) { onCancel = callback; } };
+  const main = { innerHTML: "", querySelectorAll: () => [], querySelector: selector => selector === ".delete-dialog" && main.innerHTML.includes("<dialog") ? dialog : null };
   const toggle = { dataset: {}, textContent: "" };
   const root = { addEventListener: (event, handler) => handlers.set(event, handler) };
   const slot = { ...emptySlot(), tabId: 11, title: "제품 공개", host: "example.com", role: "standby", profileId: "auto",
@@ -91,6 +93,24 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert.equal(savedPreset.profile.name, '내 경기 알림');
     assert.equal(savedPreset.profile.condition, '한타가 시작되면');
     assert(savedPreset.profile.id.startsWith('custom-'));
+    assert(main.innerHTML.includes('내 프리셋'), 'saving returns to the preset list');
+    assert(!main.innerHTML.includes('data-action="preset-edit"'));
+    await click('preset-view:1');
+    await click('preset-delete');
+    assert(main.innerHTML.includes('<dialog class="delete-dialog"'));
+    assert(main.innerHTML.includes('aria-labelledby="delete-title"'));
+    assert(modalOpened > 0, 'delete opens a native modal with focus trapping');
+    onCancel({ preventDefault() {} });
+    assert(!main.innerHTML.includes('<dialog'), 'Escape cancels deletion');
+    await click('preset-delete');
+    await click('preset-delete-cancel');
+    assert(!main.innerHTML.includes('<dialog'));
+    assert(!sent.some(message => message.cmd === 'delete-profile'));
+    await click('preset-delete');
+    await click('preset-delete-confirm');
+    assert(sent.some(message => message.cmd === 'delete-profile' && message.id === 'custom-game'));
+    assert(main.innerHTML.includes('내 프리셋'));
+
     await click('tab:sound');
     await click('edit-alert:0');
     globalThis.document.activeElement = { tagName: 'TEXTAREA' };
