@@ -78,10 +78,10 @@ test("refinement repeats on a schedule and a failed refinement keeps the working
   assert(alertProfileFor(f.slots[0]));
 });
 
-test("legacy suggested keywords become direct keywords in the listening profile", async () => {
+test("AI-generated keywords are discarded even from an older server", async () => {
   const f = fixture(async () => ({ ...profile(), watchPhrases: [" 바론 쪽으로 ", 7, "", "이니시"] }));
   await f.controller.generate(0);
-  assert.deepEqual(alertProfileFor(f.slots[0]).keywords.slice(0, 2), ["바론 쪽으로", "이니시"]);
+  assert.deepEqual(alertProfileFor(f.slots[0]).keywords, []);
   assert(alertProfileFor(f.slots[0]).watchPhrases.includes("잠시 후"), "every tab gets the shared safety net");
 });
 
@@ -278,4 +278,12 @@ test("내부 소리 기록은 조건 생성에 말소리로 보내지 않는다"
   const cleared = cleanAlertProfile({...old, keywordMode:"direct", keywords:[]});
   assert.deepEqual(cleared.keywords, []);
   assert.deepEqual(cleanAlertProfile(cleared).keywords, []);
+});
+
+test("regenerating AI conditions preserves manually entered keywords", async () => {
+  const f = fixture(async () => ({...profile(), keywords:["AI 단어"], watchPhrases:["AI 표현"]}));
+  await f.controller.generate(0);
+  f.controller.save(0, {...profile(), keywords:["휴강"], keywordMode:"direct"});
+  await f.controller.generate(0, {request:"조건만 다시 만들어줘"});
+  assert.deepEqual(alertProfileFor(f.slots[0]).keywords, ["휴강"]);
 });

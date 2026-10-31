@@ -76,7 +76,7 @@ export function createAutoProfiles({ api, slots, transcript, publish, apply, rea
         // "(소리 변화...)" 같은 내부 기록이 말소리처럼 조건에 섞이지 않게 한다.
         text: transcript(slot.tabId).split("\n").filter(line => !line.startsWith("(")).join("\n").slice(-6000) });
       if (!current()) return;
-      setup.profile = cleanAlertProfile(result);
+      setup.profile = cleanAlertProfile({ ...result, keywords: previous?.profile?.keywords ?? [], keywordMode: "direct", watchPhrases: [] });
       setup.status = "ready";
       setup.source = refine ? "transcript" : Object.keys(page).length ? "page" : "title";
     } catch (error) {

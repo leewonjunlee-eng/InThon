@@ -515,7 +515,7 @@ async function onEngineEvent(event) {
 async function createProfile(request) {
   const draft = await api.profile(request);
   const id = `custom-${Date.now()}`;
-  return { ...draft, id, aliases: {} };
+  return { ...draft, id, aliases: {}, keywords: [], watchPhrases: [], keywordMode: "direct" };
 }
 
 const commands = {

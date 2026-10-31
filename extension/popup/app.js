@@ -116,7 +116,7 @@ function renderAlertSummary(slot, i) {
 
 function presetFields(profile, target) {
   const condition = target === "alert" ? numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")) : profile.condition;
-  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>AI가 판단할 알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>바로 알림 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML(directKeywords(profile).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요. 이 단어가 들리면 AI 조건 판단 없이 바로 알려요. 자주 나오는 단어는 알림이 많아질 수 있어요.</span></label>`;
+  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>AI가 판단할 알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>바로 알림 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML(directKeywords(profile).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">AI는 알림 조건만 만들어요. 키워드는 직접 입력하고 쉼표로 구분하세요. 이 단어가 들리면 AI 조건 판단 없이 바로 알려요. 자주 나오는 단어는 알림이 많아질 수 있어요.</span></label>`;
 }
 
 function presetKeywordDetail(profile) {
