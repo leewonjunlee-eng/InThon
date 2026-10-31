@@ -120,3 +120,14 @@ html.tutorial-active #ab-mock .onboarding::backdrop{background:#f5f4fa;backdrop-
 #ab-mock .tour-example-brand .sub{margin-left:auto;font-size:10px;color:var(--brand)}
 #ab-mock .tour-example-notification h3{margin:8px 0 4px;font-size:13px}
 #ab-mock .tour-example-notification p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+
+/* Align the tutorial with the underlying main shell; only its inner content scrolls. */
+#ab-mock .onboarding{position:fixed;inset:auto;margin:0;max-width:none;max-height:none;padding:0;border-radius:16px}
+#ab-mock .tour-brand-header{display:flex;align-items:center;justify-content:space-between;flex:0 0 90px;height:90px;min-height:90px;margin:0;padding:16px 20px;border-bottom:1px solid var(--line)}
+#ab-mock .tour-brand-header .brand-lockup{font-size:20px;line-height:1.5;margin:0;gap:7px}
+#ab-mock .tour-brand-header .sub{font-size:12px;margin:0}
+#ab-mock .tour-stage{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:12px 20px 20px}
+#ab-mock .tour-stage .tour-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:3px}
+#ab-mock .tour-stage .tour-footer{flex-shrink:0}
+#ab-mock .tour-welcome{min-height:0;overflow-y:auto;padding:20px 16px}
+@media(max-width:380px){#ab-mock .tour-brand-header{padding:14px}#ab-mock .tour-stage{padding:12px 14px 20px}}
