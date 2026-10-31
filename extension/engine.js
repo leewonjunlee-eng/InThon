@@ -14,6 +14,7 @@ const WATCH_WINDOW_MS = 15000; // 조짐 표현은 최근 말만 보고 바로 �
 const WATCH_GAP_MS = 8000; // 표현이 몰려도 판단 호출이 쏟아지지 않게 한다.
 const DIGEST_EVERY_MS = 5 * 60 * 1000;
 const SURGE_WAIT_MS = 3000; // 함성 뒤에 나오는 자막까지 함께 판단한다.
+const SURGE_RULE = "\n또는: 소리가 갑자기 커진 순간에 화자가 놀람, 환호, 흥분한 말투로 방금 벌어진 일을 전할 때";
 const DUCK_DB = -38;
 const INTERIM_CHARS = 24;
 const SCREEN_EVERY_MS = 2000;
@@ -36,7 +37,7 @@ export class AudioEngine {
     const gain = this.context.createGain();
     const panner = this.context.createStereoPanner();
     const analyser = this.context.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = 16384; // 0.25초 간격을 덮는 길이라 음절 사이 틈을 재지 않는다.
     // 캡처하면 원래 탭 소리가 꺼지므로 출력으로 다시 연결한다.
     source.connect(gain).connect(panner).connect(this.context.destination);
     source.connect(analyser);
@@ -310,7 +311,7 @@ export class AudioEngine {
 
     if (!confident && hasSpeech) {
       try {
-        const { important } = await this.api.judge(text, condition);
+        const { important } = await this.api.judge(text, kind === "surge" ? condition + SURGE_RULE : condition);
         if (!important || !current()) return;
         confident = true;
       } catch {

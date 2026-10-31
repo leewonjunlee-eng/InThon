@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS = {
   token: SERVER_CONFIG.token,
 };
 
-export const SURGE_DB = { low: 12, normal: 9, high: 6 };
+export const SURGE_DB = { low: 7, normal: 4, high: 3 }; // 급등은 AI가 다시 판단하므로 넓게 잡는다.
 
 export const PROFILES = [
   {
@@ -158,18 +158,17 @@ export class SurgeDetector {
     if (!Number.isFinite(db)) return false;
     let surged = false;
     if (this.history.length >= 20) {
-      this.over = db > median(this.history) + this.thresholdDb ? this.over + 1 : 0;
+      // 말 사이 숨 쉬는 틈 한 번으로 급등이 끊기지 않게 한다.
+      this.over = db > median(this.history) + this.thresholdDb ? this.over + 1 : Math.max(0, this.over - 1);
       if (this.over >= this.sustain && now - this.lastAt >= this.cooldownMs) {
         this.lastAt = now;
         this.over = 0;
         surged = true;
       }
     }
-    // 급등 구간이 기준선을 끌어올리지 않도록 평소 소리만 기록한다.
-    if (this.over === 0) {
-      this.history.push(db);
-      if (this.history.length > this.windowSize) this.history.shift();
-    }
+    // 중앙값이라 짧은 급등은 기준선을 끌어올리지 않고, 음량이 계속 바뀌면 기준선이 따라간다.
+    this.history.push(db);
+    if (this.history.length > this.windowSize) this.history.shift();
     return surged;
   }
 }

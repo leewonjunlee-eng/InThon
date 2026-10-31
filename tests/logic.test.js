@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DEFAULT_SETTINGS, PROFILES, SurgeDetector, classify, computeRoles, correctTranscript, emptySlot, findKeyword, frameDiff, gainFor, hostOf,
+  DEFAULT_SETTINGS, PROFILES, SURGE_DB, SurgeDetector, classify, computeRoles, correctTranscript, emptySlot, findKeyword, frameDiff, gainFor, hostOf,
 } from "../extension/lib/logic.js";
 
 const lol = { ...emptySlot(), tabId: 1, topic: "롤" };
@@ -65,6 +65,21 @@ test("음성 인식 오류를 보정하면 키워드를 찾는다", () => {
   assert.equal(findKeyword("조용한 라인전입니다", keywords), null);
   assert.equal(findKeyword("블루팀이 바론 쪽으로 움직입니다", keywords), null, "이동만으로는 알리지 않음");
   assert.equal(findKeyword(correctTranscript("블루팀이 발음을 처치합니다", aliases), keywords), "바론을 처치");
+});
+
+test("소리 급등은 말 사이 틈으로 끊기지 않고 작은 상승도 잡는다", () => {
+  const detector = new SurgeDetector({ thresholdDb: SURGE_DB.normal });
+  let now = 0;
+  const feed = (...levels) => levels.map((db) => detector.push(db, now += 250)).some(Boolean);
+  assert.equal(feed(...Array(30).fill(-30)), false);
+  assert.equal(feed(-25, -25, -30, -25, -25), true, "한 틱 끊겨도 5dB 상승을 잡는다");
+});
+
+test("음량이 계속 커진 상태면 기준선이 따라가 반복 감지하지 않는다", () => {
+  const detector = new SurgeDetector();
+  let now = 0;
+  const hits = Array.from({ length: 400 }, (_, i) => detector.push(i < 40 ? -30 : -15, now += 250)).filter(Boolean);
+  assert(hits.length <= 3, `감지 ${hits.length}번`);
 });
 
 test("소리 급등은 지속될 때 한 번만 감지하고 재사용 대기를 지킨다", () => {
