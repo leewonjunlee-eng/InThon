@@ -145,7 +145,7 @@ function volumeSetting(name, title) {
 function renderGeneral() {
   return `<section class="settings-section sound-settings"><h3>음량</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 집중 전환 제안", "대기 탭을 3초 이상 보면 물어봐요. 확인해야 음량이 바뀝니다.")}${volumeSetting("focusVol", "집중 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
     <section class="settings-section"><h3>알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}</div></section>
-    <p class="shortcut-help">(연결) Ctrl+Shift+K · (집중 전환) Ctrl+Shift+→ · (복귀) Ctrl+Shift+←</p>`;
+    <section class="shortcut-help" aria-label="단축키"><h4>단축키</h4>${[["연결", "K"], ["집중 전환", "→"], ["복귀", "←"]].map(([name, key]) => `<div class="shortcut-row"><span>${name}</span><span class="shortcut-keys"><kbd>Ctrl</kbd><span class="shortcut-plus">+</span><kbd>Shift</kbd><span class="shortcut-plus">+</span><kbd>${key}</kbd></span></div>`).join("")}</section>`;
 }
 function renderPresetList() {
   const custom = state.profiles.filter(profile => profile.id.startsWith("custom-"));

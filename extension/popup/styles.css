@@ -425,4 +425,9 @@ html.extension-popup { width: 460px; height: 600px; overflow: hidden; }
 #ab-mock .slot-actions > :nth-child(2) { justify-self: center; }
 #ab-mock .slot-actions > :last-child { justify-self: end; }
 
-#ab-mock .shortcut-help { font-size: clamp(8px, 1.9vw, 10px); text-align: center; white-space: nowrap; overflow-x: auto; color: #000; border-top: 1px solid var(--line); padding-top: 14px; text-decoration: underline; text-underline-offset: 3px; }
+#ab-mock .shortcut-help { border-top: 1px solid var(--line); padding-top: 16px; }
+#ab-mock .shortcut-help h4 { margin: 0 0 8px; color: var(--muted); font-size: 12px; font-weight: 500; }
+#ab-mock .shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 38px; font-size: 13px; }
+#ab-mock .shortcut-keys { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+#ab-mock .shortcut-keys kbd { font: 11px/1.4 system-ui, sans-serif; min-width: 23px; text-align: center; padding: 3px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--soft); color: var(--ink); }
+#ab-mock .shortcut-plus { font-size: 10px; color: var(--muted); }
