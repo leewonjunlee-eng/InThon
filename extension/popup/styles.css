@@ -421,3 +421,5 @@ html.extension-popup { width: 460px; height: 600px; }
 #ab-mock .slot-actions > :first-child { justify-self: start; }
 #ab-mock .slot-actions > :nth-child(2) { justify-self: center; }
 #ab-mock .slot-actions > :last-child { justify-self: end; }
+
+#ab-mock .shortcut-help { font-size: 12px; color: #000; }
