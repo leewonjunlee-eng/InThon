@@ -135,7 +135,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment', moment: { ...moment, id: 'system-1' } });
     assert.equal(notifications.get('moment:system-1').requireInteraction, true);
     await emit({ type: 'moment', moment: { ...moment, id: 'system-2' } });
-    assert.equal(notifications.size, 1, 'new system alert replaces previous alert');
+    assert.equal(notifications.size, 2, 'a new system alert joins the one still open');
     windowFocused = true;
     focusedWindowId = 2;
     activeId = 13;
@@ -144,7 +144,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     await emit({ type: 'moment', moment: { ...moment, id: 'other-window' } });
     assert.equal(contentMessages.at(-1).cmd, 'moment');
     assert.equal(contentMessages.at(-1).id, 13, 'alert goes to the active tab in the other window');
-    assert.equal(notifications.size, 0, 'stale focus state must not force a system alert');
+    assert.equal(notifications.size, 2, 'stale focus state must not force a system alert');
     blockedTabId = 13;
     await emit({ type: 'moment', moment: { ...moment, id: 'restricted-page' } });
     assert(notifications.has('moment:restricted-page'), 'restricted pages fall back to system notifications');
@@ -155,15 +155,14 @@ test('frontend selection connects only its active tab and preserves audio contro
     activeId = 11;
     await send('settings', { patch: {} });
     await emit({ type: 'moment', moment: { ...moment, id: 'page-after-system' } });
-    assert.equal(notifications.size, 0, 'a page alert also replaces existing system alerts');
+    assert(notifications.has('moment:restricted-page'), 'a page alert leaves open system alerts in place');
     assert.equal(contentMessages.at(-1).cmd, 'moment');
-    assert(contentMessages.some(message => message.cmd === 'moment-clear' && message.id === null));
     windowFocused = false;
     await send('settings', { patch: {} });
     await emit({ type: 'moment', moment: { ...moment, id: 'system-2' } });
     await notificationClick('moment:system-2', 0);
     assert.equal(activeId, 12, 'system alert focus activates the matching tab');
-    assert.equal(notifications.size, 0);
+    assert(!notifications.has('moment:system-2'), 'the clicked alert closes');
     windowFocused = true;
     await send('focus', { tabId: 11 });
 

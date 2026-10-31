@@ -1,13 +1,11 @@
-// Persistent page alerts. New events replace the old card; summary updates never reopen one.
+// Persistent page alerts. New events stack below open cards; summary updates never reopen one.
 if (!globalThis.audioFocusLoaded) {
   globalThis.audioFocusLoaded = true;
-  let currentMomentId = null;
-  let summaryNode = null;
-  let evidenceNode = null;
-  let statusNode = null;
-  let fullSummaryNode = null;
+  const openCards = new Map(); // key -> { host, summaryNode, fullSummaryNode, evidenceNode, statusNode }
+  const STACK_ID = "audio-focus-stack";
+  const STACK_STYLE = "position: fixed; top: 12px; right: 12px; z-index: 2147483647; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 24px); overflow: auto;";
   const STYLE = `
-    .card { position: fixed; top: 12px; right: 12px; width: min(300px, calc(100vw - 44px)); max-height: calc(100vh - 48px); overflow: auto; z-index: 2147483647; background: #fff; color: #242432;
+    .card { width: min(300px, calc(100vw - 44px)); overflow: auto; z-index: 2147483647; background: #fff; color: #242432;
       border: 1px solid #dedee8; border-radius: 12px; box-shadow: 0 12px 40px #24243233; padding: 12px;
       font: 12px/1.5 system-ui, sans-serif; display: grid; gap: 10px; }
     .head { display: flex; justify-content: space-between; gap: 8px; color: #737385; }
@@ -39,10 +37,24 @@ if (!globalThis.audioFocusLoaded) {
     .error:not(:empty) { margin-top: 6px; }
     @media (pointer: coarse) { .compact .close, .compact .row button, .compact summary { min-height: 44px; } .compact .close { width: 44px; } }
   `;
-  function mount(build) {
-    document.getElementById("audio-focus-card")?.remove();
+  function closeCard(key) {
+    const entry = openCards.get(key);
+    if (!entry) return;
+    openCards.delete(key);
+    const stack = entry.host.parent ?? entry.host.parentNode;
+    entry.host.remove();
+    if (!openCards.size) stack?.remove();
+  }
+  function mount(key, build) {
+    closeCard(key);
+    let stack = document.getElementById(STACK_ID);
+    if (!stack) {
+      stack = document.createElement("div");
+      stack.id = STACK_ID;
+      stack.setAttribute("style", STACK_STYLE);
+      document.documentElement.append(stack);
+    }
     const host = document.createElement("div");
-    host.id = "audio-focus-card";
     const shadow = host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent = STYLE;
@@ -50,11 +62,10 @@ if (!globalThis.audioFocusLoaded) {
     card.className = "card";
     card.setAttribute("role", "alert");
     shadow.append(style, card);
-    build(card, () => {
-      host.remove();
-      if (!document.getElementById("audio-focus-card")) currentMomentId = null;
-    });
-    document.documentElement.append(host);
+    const entry = { host };
+    openCards.set(key, entry);
+    build(card, () => closeCard(key), entry);
+    stack.append(host);
   }
   function text(tag, value) {
     const node = document.createElement(tag);
@@ -69,7 +80,9 @@ if (!globalThis.audioFocusLoaded) {
     return node;
   }
   function updateSummary(moment) {
-    if (currentMomentId !== moment.id || !document.getElementById("audio-focus-card")) return;
+    const card = openCards.get(moment.id);
+    if (!card) return;
+    const { summaryNode, fullSummaryNode, evidenceNode, statusNode } = card;
     summaryNode.textContent = moment.summary;
     fullSummaryNode.textContent = moment.summary;
     const evidence = Array.isArray(moment.evidence) ? moment.evidence : [];
@@ -83,8 +96,7 @@ if (!globalThis.audioFocusLoaded) {
     }[moment.summaryStatus] ?? "감지 내용";
   }
   function showMoment({ moment }) {
-    currentMomentId = moment.id;
-    mount((card, close) => {
+    mount(moment.id, (card, close, entry) => {
       card.className = "card compact";
       const head = document.createElement("div");
       head.className = "head";
@@ -98,10 +110,11 @@ if (!globalThis.audioFocusLoaded) {
       dismiss.setAttribute("aria-label", "알림 닫기");
       head.append(brand, time, dismiss);
       const source = text("p", moment.topic); source.className = "source";
-      statusNode = text("p", ""); statusNode.className = "status";
-      summaryNode = text("p", ""); evidenceNode = text("blockquote", "");
+      const statusNode = text("p", ""); statusNode.className = "status";
+      const summaryNode = text("p", ""), evidenceNode = text("blockquote", "");
       summaryNode.className = "preview";
-      fullSummaryNode = text("p", "");
+      const fullSummaryNode = text("p", "");
+      Object.assign(entry, { summaryNode, fullSummaryNode, evidenceNode, statusNode });
       const details = document.createElement("details");
       const detailBody = document.createElement("div"); detailBody.className = "detail-body";
       detailBody.append(statusNode, fullSummaryNode, evidenceNode);
@@ -123,9 +136,8 @@ if (!globalThis.audioFocusLoaded) {
     updateSummary(moment);
   }
   function showPip() {
-    currentMomentId = null;
     const video = [...document.querySelectorAll("video")].sort((a, b) => b.clientWidth - a.clientWidth)[0];
-    mount((card, close) => {
+    mount("pip", (card, close) => {
       card.append(text("p", video ? "이 탭의 영상을 작은 창으로 띄웁니다." : "이 페이지에서 영상을 찾지 못했습니다."));
       if (video) card.append(action("소형 플레이어 열기", async () => {
         close(); await video.requestPictureInPicture().catch(() => {});
@@ -135,9 +147,7 @@ if (!globalThis.audioFocusLoaded) {
   }
 
   function clearMoment(id) {
-    if (!currentMomentId || (id && currentMomentId !== id)) return;
-    document.getElementById("audio-focus-card")?.remove();
-    currentMomentId = null;
+    for (const key of id ? [id] : [...openCards.keys()]) if (key !== "pip") closeCard(key);
   }
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message.to !== "content") return false;

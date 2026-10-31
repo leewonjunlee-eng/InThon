@@ -67,3 +67,52 @@ test("a superseded judgment cannot duplicate a keyword alert or erase its cooldo
     assert.equal(f.channel.lastMomentAt, now);
   }
 });
+
+test("speech during the alert gap is judged afterwards, and alerted speech is never judged twice", async t => {
+  let now = 1000000;
+  t.mock.method(Date, "now", () => now);
+  const seen = [];
+  const f = fixture({ judge: async text => { seen.push(text); return { important: true }; } });
+  f.channel.lastJudgedLine = 0;
+  await f.engine.periodicJudge(f.channel, now);
+  assert.equal(f.events.filter(event => event.type === "moment").length, 1);
+  now += 3000;
+  f.channel.lines.push({ t: now, text: "곧 결승타 찬스입니다." });
+  await f.engine.periodicJudge(f.channel, now);
+  assert.equal(seen.length, 1, "the gap postpones judging");
+  now += 8000;
+  await f.engine.periodicJudge(f.channel, now);
+  assert.equal(seen.length, 2, "the postponed speech is not lost");
+  assert.match(seen[1], /결승타/);
+  assert(!seen[1].includes("판매를 시작합니다"), "alerted speech stays out of the next judgment");
+  assert.equal(f.events.filter(event => event.type === "moment").length, 2);
+  now += 11000;
+  await f.engine.periodicJudge(f.channel, now);
+  assert.equal(seen.length, 2, "no new speech, no repeat alert");
+});
+
+test("a slow judgment is not cancelled by the next cycle", async t => {
+  let now = 1000000, resolve;
+  t.mock.method(Date, "now", () => now);
+  const f = fixture({ judge: () => new Promise(done => { resolve = done; }) });
+  f.channel.lastJudgedLine = 0;
+  const pending = f.engine.periodicJudge(f.channel, now);
+  now += 5000;
+  f.channel.lines.push({ t: now, text: "이어지는 말" });
+  await f.engine.periodicJudge(f.channel, now);
+  resolve({ important: true });
+  await pending;
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.events.filter(event => event.type === "moment").length, 1);
+});
+
+test("a keyword alerts inside the gap", async t => {
+  let now = 1000000;
+  t.mock.method(Date, "now", () => now);
+  const f = fixture();
+  await f.engine.moment(f.channel, { kind: "judge" });
+  now += 2000;
+  f.channel.lines.push({ t: now, text: "판매 시작" });
+  await f.engine.moment(f.channel, { kind: "keyword", keyword: "판매" });
+  assert.equal(f.events.filter(event => event.type === "moment").length, 2);
+});

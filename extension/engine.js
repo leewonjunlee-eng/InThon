@@ -6,10 +6,10 @@ import { transcriptExcerpt, normalizeSummary } from "./lib/summary.js";
 const SR = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
 const TICK_MS = 250;
 const KEEP_MS = 30 * 60 * 1000;
-const MOMENT_GAP_MS = 20000;
+const MOMENT_GAP_MS = 10000;
 const WINDOW_MS = 30000;
-const JUDGE_EVERY_MS = 15000;
-const JUDGE_WINDOW_MS = 20000; // 주기보다 조금 길게 잡되 알림 뒤 같은 대사를 다시 판단하지 않는 길이.
+const JUDGE_EVERY_MS = 5000;
+const JUDGE_WINDOW_MS = 20000; // 알리지 않은 말은 문맥으로 남긴다. 알린 말은 moment()에서 뺀다.
 const WATCH_WINDOW_MS = 15000; // 조짐 표현은 최근 말만 보고 바로 판단한다.
 const WATCH_GAP_MS = 8000; // 표현이 몰려도 판단 호출이 쏟아지지 않게 한다.
 const DIGEST_EVERY_MS = 5 * 60 * 1000;
@@ -44,7 +44,7 @@ export class AudioEngine {
       id, stream, source, gain, panner, analyser,
       samples: new Float32Array(analyser.fftSize),
       target: 1, db: -Infinity, profile: null, stopRecognition: null,
-      lines: [], digests: [], listenedAt: 0, lastDigestAt: 0, lastJudgeAt: 0, lastJudgedLine: 0, lastMomentAt: 0, lastMomentKind: null,
+      lines: [], digests: [], listenedAt: 0, lastDigestAt: 0, lastJudgeAt: 0, lastJudgedLine: 0, lastMomentAt: 0,
       detector: null,
     };
     channel.timer = setInterval(() => this.tick(channel), TICK_MS);
@@ -172,8 +172,6 @@ export class AudioEngine {
       if (!important || channel.profile?.contextOnly || channel.profile?.condition !== condition || this.channels.get(channel.id) !== channel) return;
       const now = Date.now();
       channel.lastMomentAt = now;
-      channel.lastMomentKind = "screen";
-      channel.momentAttempt = {};
       this.emit({
         type: "moment",
         moment: { id: `${channel.id}-${now}`, tabId: channel.id, topic: name, time: clock(now), kind: "screen", keyword: null, confident: true, summary, evidence: [] },
@@ -282,50 +280,41 @@ export class AudioEngine {
 
   async periodicJudge(channel, now) {
     channel.lastJudgeAt = now;
+    // 간격 중이거나 앞 판단이 끝나지 않았으면 말을 소비하지 않아 다음 주기에 그대로 판단한다.
+    if (channel.judging || now - channel.lastMomentAt < MOMENT_GAP_MS) return;
     const fresh = channel.lines.slice(channel.lastJudgedLine);
-    channel.lastJudgedLine = channel.lines.length;
     if (!fresh.length) return;
-    await this.moment(channel, { kind: "judge" });
+    channel.lastJudgedLine = channel.lines.length;
+    channel.judging = true;
+    try { await this.moment(channel, { kind: "judge" }); }
+    finally { channel.judging = false; }
   }
 
   async moment(channel, { kind, keyword = null }) {
     if (!channel.profile || channel.profile.contextOnly) return;
     const now = Date.now();
-    // 함성 알림 직후에 나온 키워드는 더 확실한 신호이므로 간격 제한을 받지 않는다.
-    const upgrade = kind === "keyword" && channel.lastMomentKind !== "keyword";
-    if (now - channel.lastMomentAt < MOMENT_GAP_MS && !upgrade) return;
-    channel.lastMomentAt = now;
-    channel.lastMomentKind = kind;
+    // 지정 단어는 말 그대로 확인된 신호라 간격 제한을 받지 않는다.
+    if (kind !== "keyword" && now - channel.lastMomentAt < MOMENT_GAP_MS) return;
     const { condition, summaryFocus, name } = channel.profile;
-    const attempt = channel.momentAttempt = {};
-    const current = () => channel.momentAttempt === attempt && this.channels.get(channel.id) === channel && channel.profile && !channel.profile.contextOnly && channel.profile.condition === condition;
-    const resetCooldown = () => { if (channel.momentAttempt === attempt) channel.lastMomentAt = 0; };
-    const lines = this.recent(channel, { watch: WATCH_WINDOW_MS, judge: JUDGE_WINDOW_MS }[kind] ?? WINDOW_MS);
+    const alertedBefore = channel.lastMomentAt;
+    // 판단 중 다른 알림이 나갔다면 그 말은 이미 알린 것이다. 이후의 말은 다음 주기에 판단한다.
+    const current = () => channel.lastMomentAt === alertedBefore && this.channels.get(channel.id) === channel && channel.profile && !channel.profile.contextOnly && channel.profile.condition === condition;
+    const lines = this.recent(channel, { watch: WATCH_WINDOW_MS, judge: JUDGE_WINDOW_MS }[kind] ?? WINDOW_MS)
+      .filter(line => line.t > channel.lastMomentAt);
     const text = linesToText(lines);
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
     const gated = kind === "judge" || kind === "watch"; // AI가 확인해야만 알린다.
-    if (gated && !hasSpeech) {
-      resetCooldown();
-      return;
-    }
-    if (channel.profile.requireEvidence && !hasSpeech) { resetCooldown(); return; }
+    if (gated && !hasSpeech) return;
+    if (channel.profile.requireEvidence && !hasSpeech) return;
     let confident = kind === "keyword";
 
     if (!confident && hasSpeech) {
       try {
         const { important } = await this.api.judge(text, condition);
-        if (channel.momentAttempt !== attempt) return;
-        if (!important) {
-          resetCooldown();
-          return;
-        }
+        if (!important || !current()) return;
         confident = true;
       } catch {
-        if (channel.momentAttempt !== attempt) return;
-        if (gated || channel.profile?.requireEvidence) {
-          resetCooldown();
-          return;
-        }
+        if (!current() || gated || channel.profile?.requireEvidence) return;
       }
     }
     if (gated && !confident) return;
@@ -337,10 +326,8 @@ export class AudioEngine {
       ...fallback, summaryStatus: hasSpeech ? "loading" : "no-transcript",
     };
     // Show the event immediately; enrich this same alert when the model finishes.
-    if (!current()) {
-      resetCooldown();
-      return;
-    }
+    if (!current()) return;
+    channel.lastMomentAt = Date.now();
     await this.emit({ type: "moment", moment: { ...moment } });
     if (!hasSpeech) return;
     try {

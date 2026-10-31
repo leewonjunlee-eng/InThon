@@ -297,7 +297,6 @@ function alertMoment(moment) {
 async function displayMoment(moment) {
   const index = slotIndex(moment.tabId);
   if (index === -1 || state.settings.dnd || !state.moments.some(item => item.id === moment.id)) return;
-  await clearAlerts();
   const pan = state.slots[index].pan;
   toEngine("chime", { pan }).catch(() => {});
   // Resolve the destination at delivery time, not from delayed focus-change state.

@@ -12,7 +12,7 @@ class Element {
   remove() { if (this.parent) this.parent.children = this.parent.children.filter(item => item !== this); }
 }
 const walk = node => [node, ...node.children.flatMap(walk), ...(node.shadowRoot ? walk(node.shadowRoot) : [])];
-test('alert stays until a button, replaces on new event, and ignores late updates', async () => {
+test('alert stays until a button, stacks new events, and ignores late updates', async () => {
   const root = new Element('root');
   let listener;
   const sent = [];
@@ -37,8 +37,11 @@ test('alert stays until a button, replaces on new event, and ignores late update
   assert(walk(details).some(node => node.textContent === '자막 근거' && !node.hidden));
   emit('moment', second);
   emit('moment-update', { ...first, summary: '오래된 요약' });
-  assert(!walk(root).some(node => node.textContent === '오래된 요약'));
-  assert.equal(root.children.length, 1);
+  assert(walk(root).some(node => node.textContent === '오래된 요약'), 'the open first card still updates');
+  const cards = () => walk(root).filter(node => node.className === 'card compact').length;
+  assert.equal(cards(), 2, 'a new event joins the open card');
+  listener({ to: 'content', cmd: 'moment-clear', id: first.id }, {}, () => {});
+  assert.equal(cards(), 1);
   await walk(root).find(node => node.textContent === '이 탭에 집중').onclick();
   assert.equal(sent[0].cmd, 'focus'); assert.equal(sent[0].tabId, 12);
   assert.equal(root.children.length, 0);
@@ -60,5 +63,5 @@ test('alert stays until a button, replaces on new event, and ignores late update
   assert.equal(root.children.length, 0, 'close button dismisses late updates too');
   emit('moment', second);
   listener({ to: 'content', cmd: 'moment-clear', id: null }, {}, () => {});
-  assert.equal(root.children.length, 0, 'a new event in another tab can clear the old card');
+  assert.equal(root.children.length, 0, 'clearing without an id closes every card');
 });
