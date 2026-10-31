@@ -3,6 +3,25 @@ if (!globalThis.catchSoundInboxLoaded) {
   globalThis.catchSoundInboxLoaded = true;
   let host, shadow, panel, list, badge, trigger, clearButton, error, heading;
   let items = [], expanded = false;
+  let position = null, drag = null, suppressClick = false;
+  const clamp = (value, low, high) => Math.max(low, Math.min(value, Math.max(low, high)));
+  function place() {
+    if (!host) return;
+    const width = window.innerWidth, height = window.innerHeight;
+    const point = position ?? { x: 20, y: height - 76 };
+    const x = clamp(point.x, 8, width - 64), y = clamp(point.y, 8, height - 64);
+    if (position) position = { x, y };
+    Object.assign(host.style, { left: `${x}px`, top: `${y}px`, bottom: 'auto' });
+    const panelWidth = Math.min(390, width - 40);
+    const above = y - 22, below = height - y - 78;
+    const openUp = above >= below;
+    Object.assign(panel.style, {
+      left: `${clamp(x, 8, width - panelWidth - 8) - x}px`,
+      bottom: openUp ? '70px' : 'auto', top: openUp ? 'auto' : '70px',
+      maxHeight: `${Math.max(0, Math.min(650, openUp ? above : below))}px`,
+    });
+  }
+  window.addEventListener('resize', place);
   function element(tag, text, className) {
     const node = document.createElement(tag);
     if (text) node.textContent = text;
@@ -17,7 +36,7 @@ if (!globalThis.catchSoundInboxLoaded) {
     const style = element('style');
     style.textContent = `
       :host{font:14px/1.5 system-ui,sans-serif;color:#242432}*{box-sizing:border-box}button{font:inherit;cursor:pointer}button:focus-visible{outline:3px solid #b6aaff;outline-offset:3px}[hidden]{display:none!important}
-      .bell{position:relative;display:grid;place-items:center;width:56px;height:56px;padding:0;border:0;border-radius:50%;background:#6254d8;color:white;box-shadow:0 6px 20px #30236a33}.bell svg{display:block;width:26px;height:26px}.badge{position:absolute;right:-3px;top:-5px;display:grid;place-items:center;min-width:23px;height:23px;padding:0 5px;border:2px solid white;border-radius:20px;background:#4435ab;color:white;font-size:11px;font-weight:700}
+      .bell{position:relative;display:grid;place-items:center;width:56px;height:56px;padding:0;border:0;border-radius:50%;background:#6254d8;color:white;box-shadow:0 6px 20px #30236a33}.bell{touch-action:none;user-select:none;cursor:grab}.bell.dragging{cursor:grabbing}.bell svg{display:block;width:26px;height:26px}.badge{position:absolute;right:-3px;top:-5px;display:grid;place-items:center;min-width:23px;height:23px;padding:0 5px;border:2px solid white;border-radius:20px;background:#4435ab;color:white;font-size:11px;font-weight:700}
       .panel{position:absolute;bottom:70px;left:0;width:min(390px,calc(100vw - 40px));max-height:min(650px,calc(100dvh - 110px));display:flex;flex-direction:column;border:1px solid #dedee8;border-radius:16px;background:#f5f4fa;box-shadow:0 14px 44px #24243226;overflow:hidden}.head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 16px;background:white;border-bottom:1px solid #eeedf4}.head strong{font-size:15px}.close{border:0;background:none;color:#737385;font-size:23px;line-height:1;padding:4px 8px}.sub{margin:4px 0 0;color:#737385;font-size:12px}
       .list{overflow-y:auto;overscroll-behavior:contain;min-height:0;padding:12px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin}.item{flex-shrink:0;padding:12px 14px;border:1px solid #dedee8;border-radius:12px;background:white;box-shadow:0 3px 10px #24243208}.meta{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#737385;font-size:11px;margin-bottom:5px}.brand{display:inline-flex;align-items:center;gap:5px;color:#242432;font-size:13px;font-weight:650;letter-spacing:-.3px}.brand img{width:24px;height:24px;object-fit:contain}.source{color:#6254d8;font-size:11px;overflow-wrap:anywhere}.item h3{font-size:15px;line-height:1.35;margin:4px 0}.item p{font-size:12px;line-height:1.5;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.preview{color:#737385;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}.item details{margin-top:7px}.item summary{font-size:11px;color:#737385;cursor:pointer;padding:2px 0}.detail-body{margin-top:6px;padding:9px 10px;border-radius:8px;background:#f5f4fa;color:#555566}.detail-body blockquote{margin:8px 0 0;padding-top:8px;border-top:1px solid #dedee8;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.empty{padding:32px 8px;text-align:center;color:#737385;font-size:13px}.foot{padding:12px 16px;border-top:1px solid #eeedf4;background:white}.clear{width:100%;min-height:36px;border:1px solid #dedee8;background:#f8f7fc;color:#6254d8;border-radius:8px}.clear:disabled{opacity:.45;cursor:default}.error{margin:6px 0 0;font-size:12px;color:#b73743}
       @media(prefers-reduced-motion:no-preference){.bell:hover{background:#5344c7}}`;
@@ -44,11 +63,40 @@ if (!globalThis.catchSoundInboxLoaded) {
       } catch (e) { error.textContent = e.message; clearButton.disabled = !items.length; }
     };
     foot.append(clearButton,error); panel.append(head,list,foot);
-    trigger.onclick = () => { expanded = !expanded; showPanel(); };
+    trigger.title = '클릭하면 알림 보기 · 드래그하면 위치 이동';
+    trigger.onpointerdown = event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      suppressClick = false;
+      const rect = host.getBoundingClientRect();
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, moved: false };
+      trigger.setPointerCapture(event.pointerId);
+    };
+    trigger.onpointermove = event => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 5) return;
+      drag.moved = true; suppressClick = true;
+      trigger.classList.add('dragging');
+      position = { x: drag.left + dx, y: drag.top + dy };
+      place();
+    };
+    const endDrag = event => {
+      if (!drag || drag.id !== event.pointerId) return;
+      drag = null; trigger.classList.remove('dragging');
+      setTimeout(() => { suppressClick = false; }, 0);
+      if (trigger.hasPointerCapture(event.pointerId)) trigger.releasePointerCapture(event.pointerId);
+    };
+    trigger.onpointerup = endDrag;
+    trigger.onpointercancel = endDrag;
+    trigger.onlostpointercapture = endDrag;
+    trigger.onclick = event => {
+      if (suppressClick && event.detail !== 0) { suppressClick = false; return; }
+      expanded = !expanded; showPanel();
+    };
     shadow.addEventListener('keydown',event => { if(event.key === 'Escape' && expanded){expanded=false;showPanel();trigger.focus();event.stopPropagation();} });
     shadow.append(style,panel,trigger);document.documentElement.append(host);
   }
-  function showPanel(){panel.hidden=!expanded;trigger.setAttribute('aria-expanded',String(expanded));}
+  function showPanel(){place();panel.hidden=!expanded;trigger.setAttribute('aria-expanded',String(expanded));}
   function update(data) {
     if (!data?.enabled) { host?.remove(); host=null; expanded=false; return; }
     if (!host) mount();
