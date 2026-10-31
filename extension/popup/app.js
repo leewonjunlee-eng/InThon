@@ -94,18 +94,12 @@ function renderSound() {
   let html = "";
 
   html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / ${state.slots.length} 연결됨</span></div>`;
-  if (state.returnSummary) html += renderReturn();
   if (state.peek !== null) {
     html += `<div class="notice"><h3>${label(state.peek)}를 잠깐 확인 중</h3><div class="two">${button("확인 끝 · 복귀", "restore", "solid")}${button("계속 집중", "keep")}</div></div>`;
   }
   html += state.slots.map(renderSlot).join("");
   html += button(addingSlot ? "추가 중…" : "＋ 탭 추가", "add-slot", "full add-slot", addingSlot);
   return html;
-}
-
-function renderReturn() {
-  const item = state.returnSummary;
-  return `<div class="notice"><h3>놓친 내용 · 소리 ${label(item.slot)} (${item.minutes}분)</h3><p>${escapeHTML(item.summary)}</p>${button("확인", "clear-return", "quiet")}</div>`;
 }
 
 function renderAlertSummary(slot, i) {
