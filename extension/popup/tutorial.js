@@ -49,7 +49,7 @@ function startTutorial(manual=false) {
       return;
     }
     const titles=['듣고 싶은 탭을 연결해보세요','음량과 소리 방향을 조절해보세요','놓치고 싶지 않은 순간을 정해보세요','알림은 잠시 모아둘 수도 있어요'];
-    const descriptions=[`지금 보고 있는 페이지에서 ${key}를 눌러보세요. 바로 연결된 탭 카드가 나타나요.`, '슬라이더로 음량을 바꾸고, 소리가 나올 방향을 선택해보세요.', 'AI 자동 설정이나 내 프리셋을 골라보세요. 직접 만든 조건은 세부설정의 프리셋에 저장할 수 있어요.', '방해 금지를 켜보세요. 종 버튼에 알림이 모이고, 필요할 때 펼쳐볼 수 있어요.'];
+    const descriptions=[`지금 보고 있는 페이지에서 ${key}를 눌러보세요. 바로 연결된 탭 카드가 나타나요.`, '슬라이더로 음량을 바꾸고, 소리가 나올 방향을 선택해보세요.', 'AI 자동 설정이나 내 프리셋을 고르고, 원하는 알림 조건을 저장해보세요.', '방해 금지를 켜보세요. 종 버튼에 알림이 모이고, 필요할 때 펼쳐볼 수 있어요.'];
     let content='';
     if(step===0 && picker) content=`${button('← 슬롯으로 돌아가기','picker-back','quiet')}<h3>연결할 탭 선택</h3><p class="sub">탭을 누르면 바로 슬롯에 선택됩니다.</p><div class="picker">${samples.map((s,i)=>button(`<span>${s.title}<span class="sub">${s.host}</span></span>`,`select:${i}`,'choice')).join('')}</div>`;
     else if(step===0) {
