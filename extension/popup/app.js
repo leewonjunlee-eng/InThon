@@ -77,7 +77,7 @@ function renderSlot(slot, i) {
   const selected = Boolean(selections[i]);
   const status = connected && main ? "집중 탭" : connected || selected ? "대기 탭" : "비어 있음";
   const kind = connected && main ? "focused" : connected || selected ? "standby" : "vacant";
-  const symbol = kind === "standby" ? `<img src="${transport.isExtension ? "../icons/pause.svg" : "/extension/icons/pause.svg"}" width="18" height="18" alt="">` : kind === "focused" ? "●" : "○";
+  const symbol = kind === "standby" ? `<img src="${transport.isExtension ? "../icons/pause.svg" : "/extension/icons/pause.svg"}" width="18" height="18" alt="">` : `<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="5" fill="${kind === "focused" ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.5"/></svg>`;
   let html = `<article class="slot ${connected ? "" : "empty"} ${main ? "focus-card" : ""}" aria-label="${label(i)} 탭 소리"><div class="slot-heading"><h3 class="tab-status ${kind}"><span class="status-icon" aria-hidden="true">${symbol}</span>${status}</h3>${button(`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>`, `remove-slot:${i}`, "quiet remove-slot", connecting.size > 0, `aria-label="${label(i)} 탭 삭제" title="탭 삭제"`)}</div>`;
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];

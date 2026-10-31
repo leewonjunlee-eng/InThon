@@ -346,7 +346,8 @@ html.extension-popup { width: 460px; height: 600px; }
 #ab-mock .tab-status { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 6px 10px; background: var(--soft); color: var(--muted); }
 #ab-mock .tab-status.focused { background: var(--tint); color: var(--brand); }
 #ab-mock .tab-status.standby { color: var(--ink); }
-#ab-mock .status-icon { display: inline-grid; place-items: center; width: 18px; height: 18px; font-size: 15px; font-weight: 600; }
+#ab-mock .status-icon { display: inline-grid; place-items: center; flex: 0 0 18px; width: 18px; height: 18px; line-height: 1; }
+#ab-mock .status-icon svg, #ab-mock .status-icon img { display: block; }
 
 /* Settings use focused sections and separate preset pages within the same popup. */
 #ab-mock .settings-top { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; height: 40px; }
