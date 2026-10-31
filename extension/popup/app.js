@@ -138,7 +138,7 @@ function renderAlertEditor() {
 
 function renderEntrust() {
   const connected = state.slots.map((slot, i) => (slot.tabId !== null ? renderProfileSelect(slot, i) : "")).join("");
-  let html = button("← 소리로 돌아가기", "tab:sound", "quiet") + `<h3>세부 설정 (맡기기)</h3><h3>무엇을 맡길까요?</h3><p class="sub">대기 중인 탭만 대신 듣습니다. 음성은 저장하지 않고, 자막은 탭을 닫으면 지워집니다.</p>`;
+  let html = button("← 소리로 돌아가기", "tab:sound", "quiet") + `<h3>세부 설정</h3>`;
   html += connected || `<div class="notice">먼저 소리 화면에서 연결해 주세요.</div>`;
   html += `<label class="stack"><span>조건을 한 줄로 적기</span><input type="text" id="request" maxlength="200" placeholder="두산 득점하면 알려줘"></label>${button(busy ? "만드는 중…" : "프로필 만들기", "draft", "full", busy)}`;
   if (draft) {
