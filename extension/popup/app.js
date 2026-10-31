@@ -126,7 +126,6 @@ function renderAlertEditor() {
   html += `<label class="stack">요약에서 알고 싶은 내용<textarea rows="2" maxlength="300" data-alert-field="summaryFocus">${escapeHTML(profile.summaryFocus)}</textarea></label>`;
   html += `<div class="two">${button("저장하고 적용", "save-alert", "solid")}${button("취소", "close-alert")}</div>`;
   html += button("프리셋으로 저장", "preset-from-alert", "full");
-  html += button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "AI로 다시 제안받기", "regenerate-alert", "full", slot.alertSetup?.status === "generating");
   return html;
 }
 
@@ -241,11 +240,6 @@ async function dispatch(action) {
       const reply = await act("save-alerts", { index: alertEditor.index, tabId: alertEditor.tabId, profile: alertEditor.profile });
       if (reply?.ok) { alertEditor = null; notice = "알림 조건을 저장했어요."; render(); }
       return;
-    }
-    case "regenerate-alert": {
-      const { index, tabId } = alertEditor;
-      alertEditor = null;
-      return act("generate-alerts", { index, tabId });
     }
     case "prompt-alert": {
       const { index, tabId } = alertEditor;
