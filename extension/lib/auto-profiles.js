@@ -1,3 +1,11 @@
+// All user-visible keywords mean direct alerts, including legacy AI suggestions.
+export function directKeywords(profile = {}) {
+  const keywords = Array.isArray(profile.keywords) ? profile.keywords : [];
+  const legacy = Array.isArray(profile.watchPhrases) ? profile.watchPhrases : [];
+  const source = profile.keywordMode === "direct" ? keywords : [...keywords, ...legacy];
+  return [...new Set(source.filter(word => typeof word === "string").map(word => word.trim().slice(0, 100)).filter(Boolean))].slice(0, 30);
+}
+
 // Shared by the extension and the audio preview. Tab text is data, never instructions.
 export function cleanAlertProfile(value) {
   const text = (value, max) => typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -5,10 +13,8 @@ export function cleanAlertProfile(value) {
     text: text(rule.text, 2000), enabled: rule.enabled !== false,
   })).filter(rule => rule.text);
   if (!rules.length) throw new Error("알림 조건을 하나 이상 입력해 주세요.");
-  const watchPhrases = (Array.isArray(value.watchPhrases) ? value.watchPhrases : []).map(phrase => text(phrase, 20)).filter(Boolean).slice(0, 20);
-  // keywords는 AI 확인 없이 바로 알리므로 사람이 정한 단어만 둔다. AI가 고른 표현은 watchPhrases로 판단을 거친다.
-  const keywords = (Array.isArray(value.keywords) ? value.keywords : []).map(word => text(word, 100)).filter(Boolean).slice(0, 30);
-  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: rules.map(rule => rule.text).join("\n").slice(0, 300), rules, watchPhrases, keywords };
+  const keywords = directKeywords(value ?? {});
+  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: rules.map(rule => rule.text).join("\n").slice(0, 300), rules, keywords, keywordMode: "direct", watchPhrases: [] };
 }
 
 export function alertProfileFor(slot) {
@@ -20,8 +26,8 @@ export function alertProfileFor(slot) {
   // A scope the user chose or edited must stay exact.
   const broad = !setup.edited && !setup.request;
   if (!rules.length && (setup.profile || !broad)) return null;
-  return { ...profile, id: `auto-${slot.tabId}`, keywords: profile.keywords ?? [], aliases: {}, requireEvidence: true,
-    watchPhrases: [...(profile.watchPhrases ?? []), ...(broad ? BROAD_PHRASES : [])],
+  return { ...profile, id: `auto-${slot.tabId}`, keywords: directKeywords(profile), aliases: {}, requireEvidence: true,
+    watchPhrases: broad ? BROAD_PHRASES : [],
     condition: [...rules.map(rule => rule.text), ...(broad ? [BROAD_RULE] : [])].join("\n또는: "),
     summaryFocus: profile.summaryFocus || "알림 조건과 관련된 사건, 결정, 일정",
   };

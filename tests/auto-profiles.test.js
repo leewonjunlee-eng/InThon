@@ -78,10 +78,10 @@ test("refinement repeats on a schedule and a failed refinement keeps the working
   assert(alertProfileFor(f.slots[0]));
 });
 
-test("watch phrases survive cleaning and reach the listening profile", async () => {
+test("legacy suggested keywords become direct keywords in the listening profile", async () => {
   const f = fixture(async () => ({ ...profile(), watchPhrases: [" 바론 쪽으로 ", 7, "", "이니시"] }));
   await f.controller.generate(0);
-  assert.deepEqual(alertProfileFor(f.slots[0]).watchPhrases.slice(0, 2), ["바론 쪽으로", "이니시"]);
+  assert.deepEqual(alertProfileFor(f.slots[0]).keywords.slice(0, 2), ["바론 쪽으로", "이니시"]);
   assert(alertProfileFor(f.slots[0]).watchPhrases.includes("잠시 후"), "every tab gets the shared safety net");
 });
 
@@ -270,4 +270,12 @@ test("내부 소리 기록은 조건 생성에 말소리로 보내지 않는다"
     transcript: () => "한타가 열립니다\n(소리 변화: 함성이나 고함 급등)\n바론으로 갑니다", publish: async () => {}, apply: async () => {} });
   await controller.generate(0);
   assert.equal(sent, "한타가 열립니다\n바론으로 갑니다");
+});
+
+ test("clearing unified keywords does not resurrect legacy suggestions", () => {
+  const old = { name: "경기", keywords: ["바론"], watchPhrases: ["바론", "한타"], rules: [{text:"교전", enabled:true}] };
+  assert.deepEqual(cleanAlertProfile(old).keywords, ["바론", "한타"]);
+  const cleared = cleanAlertProfile({...old, keywordMode:"direct", keywords:[]});
+  assert.deepEqual(cleared.keywords, []);
+  assert.deepEqual(cleanAlertProfile(cleared).keywords, []);
 });

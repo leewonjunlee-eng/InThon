@@ -54,6 +54,7 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     publishProfile('auto');
     globalThis.document.activeElement = null;
 
+    assert(!main.innerHTML.includes("인식 확인"));
     await click("edit-alert:0");
     assert(main.innerHTML.includes("가격이 공개되면"));
     assert(main.innerHTML.startsWith('<div class="settings-top">'));
@@ -68,7 +69,9 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     const save = sent.find(message => message.cmd === "save-alerts");
     assert.equal(save.tabId, 11);
     assert.deepEqual(save.profile.rules, [{ text: "판매가 시작되면", enabled: true }]);
-    assert.deepEqual(save.profile.watchPhrases, ["판매 시작", "오픈"]);
+    assert.deepEqual(save.profile.keywords, ["판매 시작", "오픈"]);
+    assert.deepEqual(save.profile.watchPhrases, []);
+    assert.equal(save.profile.keywordMode, "direct");
     assert(main.innerHTML.includes("알림 조건을 저장했어요."));
     await click("edit-alert:0");
     assert(main.innerHTML.includes("AI에게 원하는 알림 설명하기"));

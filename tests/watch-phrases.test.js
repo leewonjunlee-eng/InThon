@@ -48,9 +48,9 @@ test("repeated watch phrases do not flood the judge", async () => {
   } finally { Date.now = realDate; }
 });
 
-test("AI가 고른 표현은 바로 알리지 않고 판단을 거치며, 사람이 정한 키워드만 바로 알린다", async () => {
+test("기존 AI 추천 키워드도 바로 알림 키워드로 통일한다", async () => {
   const profile = alertProfileFor({ tabId: 1, alertSetup: { profile: cleanAlertProfile({ name: "야구", watchPhrases: ["기회"], rules: [{ text: "만루 찬스" }] }) } });
-  assert.deepEqual(profile.keywords, []);
+  assert.deepEqual(profile.keywords, ["기회"]);
   assert.deepEqual(cleanAlertProfile({ keywords: ["끝내기"], rules: [{ text: "x" }] }).keywords, ["끝내기"]);
 });
 
