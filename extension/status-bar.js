@@ -12,6 +12,20 @@ if (!globalThis.catchSoundStatusLoaded) {
   .bar{height:38px;display:flex;align-items:center;gap:6px;padding:0 8px 0 3px}.handle{height:30px;width:27px;border:0;border-radius:6px;background:none;color:#aaa5b8;font-size:21px;cursor:grab;touch-action:none;user-select:none}.handle:active{cursor:grabbing;background:#f1eff8}
   .toggle{flex:1;display:flex;align-items:center;gap:7px;border:0;background:none;text-align:left;color:#393445;padding:4px 0;white-space:nowrap}.dot{width:6px;height:6px;border-radius:50%;background:#6254d8;flex-shrink:0}.error .dot{background:#c64b51}.delay .dot,.preparing .dot{background:#bc8224}.off .dot{background:#9d98a8}.close{border:0;background:none;color:#88818f;font-size:18px;padding:2px 5px;border-radius:5px}.close:hover{background:#f1eff8}
   .panel{border-top:1px solid #efedf4;padding:12px;max-height:min(360px,calc(100vh - 80px));overflow:auto}.item{border-top:1px solid #f0eef5;padding:10px 0}.item:last-child{padding-bottom:0}.item:first-child{border-top:0;padding-top:0}.status{font-size:11px;font-weight:650;margin-top:5px}.error .status{color:#b04750}.delay .status,.preparing .status{color:#936419}.ready .status{color:#6254d8}.off .status{color:#777080}.title{font-size:12px;font-weight:600;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}.detail{display:flex;gap:6px;align-items:center;margin-top:5px;color:#777080;font-size:11px}.meta{margin-top:3px;font-size:10px;color:#918a9c}.actions{display:flex;gap:7px;margin-top:8px}.actions button{border:1px solid #e6e1f1;border-radius:6px;background:#f6f4fc;color:#6254d8;padding:4px 9px;font-size:11px}.message{color:#b04750;font-size:11px;margin:6px 0 0}.message:empty{display:none}
+  @media (prefers-color-scheme: dark) {
+    :host{color-scheme:dark;color:#dedde3}
+    .shell{background:#242426;border-color:#3a393e;box-shadow:0 4px 18px #00000024}
+    .toggle{color:#dedde3}.handle{color:#85828d}.close{color:#aaa7b2}
+    .handle:active,.close:hover{background:#333237}
+    .panel,.item{border-color:#3a393e}
+    .detail,.off .status{color:#aaa7b2}.meta{color:#928e9b}
+    .dot{background:#a89be8}.error .dot{background:#e28188}
+    .delay .dot,.preparing .dot{background:#c5a36a}.off .dot{background:#85818d}
+    .ready .status{color:#b5a9ef}.error .status,.message{color:#e9959b}
+    .delay .status,.preparing .status{color:#d2b582}
+    .actions button{background:#323039;border-color:#48434f;color:#c2b6f2}
+    button:focus-visible{outline-color:#b5a9ef}
+  }
   </style><section class="shell" aria-label="CatchSound 감지 상태"><div class="bar"><button class="handle" aria-label="상태바 이동" title="드래그 또는 방향키로 이동">⠿</button><button class="toggle" aria-expanded="false" aria-controls="monitor-panel"><span class="dot"></span><span class="label">상태 확인 중</span></button><button class="close" aria-label="상태바 닫기" title="상태바 닫기">×</button></div><div class="panel" id="monitor-panel" hidden><div class="list"></div><p class="message" role="status"></p></div></section>`;
   document.documentElement.append(host);
   const $ = s => shadow.querySelector(s);
