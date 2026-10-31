@@ -75,3 +75,14 @@ test('an already-visible alert finishes its summary after disconnect, focus, or 
     assert.equal(events[1].moment.summaryStatus, 'ai');
   }
 });
+
+test('keyword summaries describe the mention without evaluating unrelated alert conditions', async () => {
+  let focus;
+  const f = fixture({summarize:async (_text, value)=>{focus=value;return {summary:'시험 일정은 아직 정해지지 않았다고 말했습니다.',evidence:[]};}}, '시험 일정은 아직 정해지지 않았습니다.');
+  f.channel.profile.summaryFocus='바론과 드래곤 교전 여부';
+  await f.engine.moment(f.channel,{kind:'keyword',keyword:'시험'});
+  assert.match(focus,/시험/);
+  assert.match(focus,/충족 여부를 평가하거나 요청한 사건이 없다는 설명을 덧붙이지 않는다/);
+  assert(!focus.includes('바론'));
+  assert.match(f.events.at(-1).moment.summary,/정해지지 않았/);
+});

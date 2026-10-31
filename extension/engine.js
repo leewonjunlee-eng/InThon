@@ -416,7 +416,10 @@ export class AudioEngine {
     await this.emit({ type: "moment", moment: { ...moment } });
     if (!hasSpeech) return;
     try {
-      const result = normalizeSummary(await this.api.summarize(text, summaryFocus), lines);
+      const focus = kind === "keyword"
+        ? `키워드 ${JSON.stringify(String(keyword).slice(0, 100))}가 언급된 맥락과 실제 발언만 요약한다. 알림 조건의 충족 여부를 평가하거나 요청한 사건이 없다는 설명을 덧붙이지 않는다. 원래 발언의 부정·취소 표현은 의미를 바꾸지 않고 유지한다.`
+        : summaryFocus;
+      const result = normalizeSummary(await this.api.summarize(text, focus), lines);
       Object.assign(moment, result, { summaryStatus: "ai" });
     } catch {
       Object.assign(moment, fallback, { summaryStatus: "fallback" });
