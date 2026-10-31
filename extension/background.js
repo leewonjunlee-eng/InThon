@@ -713,6 +713,12 @@ chrome.windows.onFocusChanged.addListener(async () => {
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
+  // Chrome consumes registered shortcuts before the popup's DOM key handler.
+  // Give an open tutorial first refusal so practice never changes real audio.
+  try {
+    const reply = await chrome.runtime.sendMessage({ to: "tutorial", command });
+    if (reply?.handled === true) return;
+  } catch { /* No tutorial is open; use the normal shortcut action. */ }
   await load();
   try {
     if (command === "connect-tab" && tab) await connectTab(tab);

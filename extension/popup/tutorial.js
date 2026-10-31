@@ -62,18 +62,30 @@ function startTutorial(manual=false) {
     dialog.innerHTML=`${header}<div class="tour-progress" role="progressbar" aria-label="튜토리얼 진행 단계" aria-valuemin="0" aria-valuemax="4" aria-valuenow="${step+1}">${[0,1,2,3].map(i=>`<span class="${i<=step?'filled':''}"></span>`).join('')}</div><div class="tour-heading"><span class="sub">시작하기 · ${step+1}/4</span>${button('건너뛰기','skip','quiet')}</div><div class="tour-title-row"><h3 id="onboarding-title">${step===2&&detail?'프리셋을 직접 수정해보세요':titles[step]}</h3>${step===3 ? `<input type="checkbox" class="setting-switch" data-tour-dnd aria-label="연습용 방해 금지" ${dnd?'checked':''}>` : ''}</div><p class="sub tour-description">${step===2&&detail?'원하는 조건으로 바꾸고 저장하면 이 탭에 적용돼요.':descriptions[step]}</p><div class="tour-content">${content}</div><div class="tour-footer">${step===2&&detail ? button('취소','cancel-preset')+button('저장하고 적용','save-preset','solid') : (step?button('이전','back'):'')+button(step===3?'시작하기':'다음','next','solid')}</div>`;
     if(focus) dialog.querySelector('[data-tour="next"]').focus({preventScroll:true});
   }
-  function close(){document.documentElement.classList.remove('tutorial-active');try{localStorage.setItem(KEY,'done');}catch{} document.removeEventListener('keydown',onKey,true);dialog.close();dialog.remove();if(force){const url=new URL(location.href);url.searchParams.delete('tutorial');history.replaceState(null,'',url);}document.getElementById(manual ? 'tutorial-launcher' : 'settings-toggle')?.focus();}
-  function onKey(event){
-    if(welcome || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || event.repeat) return;
-    if(step===0 && event.code==='KeyK') {
-      event.preventDefault();event.stopImmediatePropagation();connected=true;selected=0;picker=false;render(true);
-    } else if(step===1 && ['ArrowRight','ArrowLeft'].includes(event.code)) {
-      event.preventDefault();event.stopImmediatePropagation();
+  function close(){document.documentElement.classList.remove('tutorial-active');try{localStorage.setItem(KEY,'done');}catch{} document.removeEventListener('keydown',onKey,true);globalThis.chrome?.runtime?.onMessage?.removeListener(onCommand);dialog.close();dialog.remove();if(force){const url=new URL(location.href);url.searchParams.delete('tutorial');history.replaceState(null,'',url);}document.getElementById(manual ? 'tutorial-launcher' : 'settings-toggle')?.focus();}
+  function practiceCommand(command){
+    if(welcome) return;
+    if(step===0 && command==='connect-tab') {
+      connected=true;selected=0;picker=false;render(true);
+    } else if(step===1 && ['switch-focus','restore'].includes(command)) {
       practiceVolumes[switched ? 1 : 0]=volume;
-      switched=event.code==='ArrowRight';
+      switched=command==='switch-focus';
       volume=practiceVolumes[switched ? 1 : 0];
       render(true);
     }
+  }
+  function onCommand(message, _sender, respond){
+    if(message.to!=='tutorial' || !dialog.open || !['connect-tab','switch-focus','restore'].includes(message.command)) return false;
+    practiceCommand(message.command);
+    respond({handled:true});
+    return false;
+  }
+  function onKey(event){
+    if(!event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey || event.repeat) return;
+    const command={KeyK:'connect-tab',ArrowRight:'switch-focus',ArrowLeft:'restore'}[event.code];
+    if(!command) return;
+    event.preventDefault();event.stopImmediatePropagation();
+    practiceCommand(command);
   }
   dialog.addEventListener('click',event=>{const action=event.target.closest('[data-tour]')?.dataset.tour;if(!action)return;event.stopPropagation();if(action==='skip'||action==='next'&&step===3)return close();if(action==='start'){welcome=false;render(true);return;}if(action==='next'){step++;picker=false;}else if(action==='back'){step--;picker=false;}else if(action==='add-tab'){added=true;}else if(action==='remove-added'){added=false;secondSelected=null;}else if(action.startsWith('pick:')){pickerTarget=Number(action.split(':')[1]);picker=true;}else if(action==='picker-back')picker=false;else if(action.startsWith('select:')){const chosen=Number(action.split(':')[1]);if(pickerTarget===1)secondSelected=chosen;else{selected=chosen;connected=true;}picker=false;}else if(action==='focus-current'){practiceVolumes[1]=volume;switched=false;volume=practiceVolumes[0];}else if(action.startsWith('pan:'))pan=Number(action.split(':')[1]);else if(action==='conditions'){presetDraft={...presets[preset]};detail=true;}
     else if(action==='cancel-preset'){detail=false;presetDraft=null;}
@@ -89,5 +101,5 @@ function startTutorial(manual=false) {
   dialog.addEventListener('submit',event=>event.preventDefault());
   dialog.addEventListener('input',event=>{if(event.target.closest('#tour-preset-editor')){event.target.setCustomValidity('');presetDraft[event.target.name]=event.target.value;event.stopPropagation();}if(event.target.matches('[data-tour-volume]')){volume=Number(event.target.value);dialog.querySelector('#tour-volume').textContent=volume+'%';event.stopPropagation();}});
   dialog.addEventListener('change',event=>{if(event.target.matches('[data-tour-preset]'))preset=event.target.value;else if(event.target.matches('[data-tour-dnd]')){dnd=event.target.checked;inbox=dnd;}else return;event.stopPropagation();render();});
-  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.addEventListener('keydown',onKey,true);render();dialog.showModal();
+  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.addEventListener('keydown',onKey,true);globalThis.chrome?.runtime?.onMessage?.addListener(onCommand);render();dialog.showModal();
 }

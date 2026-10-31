@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 // Exercise the real background message boundary with Chrome APIs replaced by fakes.
 test('frontend selection connects only its active tab and preserves audio controls', async () => {
   let handler, latest, shortcut, notificationClick, notificationClosed, tabRemoved, tabActivated;
+  let tutorialOpen = false;
+  const tutorialCommands = [];
   let activeId = 11;
   let windowFocused = true;
   let focusedWindowId = 1;
@@ -32,6 +34,7 @@ test('frontend selection connects only its active tab and preserves audio contro
       getContexts: async () => [],
       onMessage: { addListener(fn) { handler = fn; } },
       async sendMessage(message) {
+        if (message.to === 'tutorial') { tutorialCommands.push(message.command); return { handled: tutorialOpen }; }
         if (message.to === 'ui') latest = structuredClone(message.state);
         else engineCommands.push(message);
         return { ok: true };
@@ -132,6 +135,15 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[0].muted, true, 'restore must recover mute state changed by focus');
     await send('focus', { index: 0 });
     assert(engineCommands.some(item => item.cmd === 'output' && item.tabId === 11 && item.gain === 0.8));
+    tutorialOpen = true;
+    const beforePractice = JSON.stringify(latest);
+    const engineCount = engineCommands.length;
+    for (const command of ['connect-tab', 'switch-focus', 'restore']) await shortcut(command, tabs[1]);
+    assert.deepEqual(tutorialCommands.slice(-3), ['connect-tab', 'switch-focus', 'restore']);
+    assert.equal(JSON.stringify(latest), beforePractice, 'tutorial shortcuts must not change real state');
+    assert.equal(engineCommands.length, engineCount, 'tutorial shortcuts must not change real audio');
+    assert.equal(activeId, 11, 'tutorial shortcuts must not activate another tab');
+    tutorialOpen = false;
     await shortcut('switch-focus');
     assert.equal(activeId, 12, 'keyboard switch must activate the other tab');
     assert.equal(latest.slots[1].role, 'main');
