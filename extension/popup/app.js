@@ -84,7 +84,7 @@ function renderSlot(slot, i) {
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
   html += `<label class="stack slot-preset"><span class="sub">알림 프리셋</span><select data-profile="${i}" aria-label="${label(i)} 탭 알림 프리셋"><option value="" ${!slot.profileId ? "selected" : ""}>알림 사용 안 함</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI 자동 설정</option>${state.profiles.filter(profile => profile.id.startsWith("custom-")).map(profile => `<option value="${escapeHTML(profile.id)}" ${slot.profileId === profile.id ? "selected" : ""}>${escapeHTML(profile.name)}</option>`).join("")}</select></label>`;
   html += renderAlertSummary(slot, i);
-  html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 볼륨</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 볼륨"></label>`;
+  html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 음량</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 음량"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
   html += button(focused ? "집중 중" : "여기에 집중", `focus:${i}`, focused ? "solid full" : "full", focused);
   html += `<div class="slot-actions">${button("탭으로 이동 ↗", `goto:${slot.tabId}`, "quiet")}${button("소형 플레이어", `pip:${i}`, "quiet")}${button("연결 해제", `stop:${i}`, "quiet")}</div>`;
@@ -142,7 +142,7 @@ function volumeSetting(name, title) {
   return `<label class="setting-volume"><span class="row"><span>${title}</span><output id="setting-${name}">${state.settings[name]}%</output></span><input type="range" min="0" max="100" value="${state.settings[name]}" data-setting-range="${name}" aria-label="${title}"></label>`;
 }
 function renderGeneral() {
-  return `<section class="settings-section sound-settings"><h3>음향</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 집중 전환 제안", "대기 탭을 3초 이상 보면 물어봐요. 확인해야 음량이 바뀝니다.")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
+  return `<section class="settings-section sound-settings"><h3>음량</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 집중 전환 제안", "대기 탭을 3초 이상 보면 물어봐요. 확인해야 음량이 바뀝니다.")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
     <section class="settings-section"><h3>알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}</div></section>
     <p class="shortcut-help">(연결) Ctrl+Shift+K · (집중 전환) Ctrl+Shift+→ · (복귀) Ctrl+Shift+←</p>`;
 }
