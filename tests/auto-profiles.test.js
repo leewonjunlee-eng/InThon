@@ -3,6 +3,15 @@ import assert from "node:assert/strict";
 import { alertProfileFor, cleanAlertProfile, createAutoProfiles } from "../extension/lib/auto-profiles.js";
 import { createApi } from "../extension/lib/api.js";
 
+test("three-field presets preserve edited keywords through cleaning and listening", () => {
+  const cleaned = cleanAlertProfile({ name: "경기", keywords: ["한타", "바론"], rules: [{ text: "한타가 시작되면", enabled: true }], summaryFocus: "old" });
+  assert.deepEqual(cleaned.keywords, ["한타", "바론"]);
+  assert.equal(cleaned.summaryFocus, "한타가 시작되면");
+  const listening = alertProfileFor({ tabId: 1, alertSetup: { edited: true, profile: cleaned } });
+  assert.deepEqual(listening.keywords, ["한타", "바론"]);
+  assert.deepEqual(cleanAlertProfile({ ...cleaned, keywords: [] }).keywords, []);
+});
+
 const profile = (name = "판매 방송") => ({ name, summaryFocus: "가격과 판매 일정", rules: [
   { text: "최종 가격이 실제 공개되었을 때", enabled: true },
   { text: "판매 시작 시각이 확정되었을 때", enabled: false },

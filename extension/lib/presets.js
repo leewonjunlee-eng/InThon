@@ -4,7 +4,7 @@ export function savePreset(existing, profile) {
   const name = text(profile.name, 60), condition = text(profile.condition, 2000);
   if (!name || !condition) throw new Error('프리셋 이름과 알림 조건을 입력해 주세요.');
   const list = value => Array.isArray(value) ? value.filter(item => typeof item === 'string').map(item => text(item, 100)).filter(Boolean).slice(0, 30) : [];
-  const saved = { id: profile.id, name, condition, summaryFocus: text(profile.summaryFocus, 300), keywords: list(profile.keywords), relatedSites: list(profile.relatedSites), relatedWords: list(profile.relatedWords), aliases: profile.aliases && typeof profile.aliases === 'object' ? profile.aliases : {} };
+  const saved = { id: profile.id, name, condition, summaryFocus: condition.slice(0, 300), keywords: list(profile.keywords), relatedSites: list(profile.relatedSites), relatedWords: list(profile.relatedWords), aliases: profile.aliases && typeof profile.aliases === 'object' ? profile.aliases : {} };
   return [...existing.filter(item => item.id !== saved.id), saved];
 }
 export function deletePreset(existing, slots, id) {

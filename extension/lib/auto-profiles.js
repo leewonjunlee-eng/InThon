@@ -2,11 +2,12 @@
 export function cleanAlertProfile(value) {
   const text = (value, max) => typeof value === "string" ? value.trim().slice(0, max) : "";
   const rules = (Array.isArray(value?.rules) ? value.rules : []).slice(0, 6).map(rule => ({
-    text: text(rule.text, 240), enabled: rule.enabled !== false,
+    text: text(rule.text, 2000), enabled: rule.enabled !== false,
   })).filter(rule => rule.text);
   if (!rules.length) throw new Error("알림 조건을 하나 이상 입력해 주세요.");
   const watchPhrases = (Array.isArray(value.watchPhrases) ? value.watchPhrases : []).map(phrase => text(phrase, 20)).filter(Boolean).slice(0, 12);
-  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: text(value.summaryFocus, 300), rules, watchPhrases };
+  const keywords = (Array.isArray(value.keywords) ? value.keywords : watchPhrases).map(word => text(word, 100)).filter(Boolean).slice(0, 30);
+  return { name: text(value.name, 60) || "이 탭의 알림", summaryFocus: rules.map(rule => rule.text).join("\n").slice(0, 300), rules, watchPhrases, keywords };
 }
 
 export function alertProfileFor(slot) {
@@ -16,7 +17,7 @@ export function alertProfileFor(slot) {
   if (!rules.length) return null;
   // A scope the user chose or edited must stay exact.
   const broad = !slot.alertSetup.edited && !slot.alertSetup.request;
-  return { ...profile, id: `auto-${slot.tabId}`, keywords: [], aliases: {}, requireEvidence: true,
+  return { ...profile, id: `auto-${slot.tabId}`, keywords: profile.keywords ?? [], aliases: {}, requireEvidence: true,
     watchPhrases: [...(profile.watchPhrases ?? []), ...(broad ? BROAD_PHRASES : [])],
     condition: [...rules.map(rule => rule.text), ...(broad ? [BROAD_RULE] : [])].join("\n또는: "),
     summaryFocus: profile.summaryFocus || "알림 조건과 관련된 사건, 결정, 일정",

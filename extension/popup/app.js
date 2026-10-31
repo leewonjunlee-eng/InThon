@@ -112,6 +112,15 @@ function renderAlertSummary(slot, i) {
   return `<div class="notice alert-summary"><p role="status">${escapeHTML(status)}</p><p class="sub">${escapeHTML(source)}</p>${setup?.request ? `<p class="sub">내 요청: ${escapeHTML(setup.request).slice(0, 160)}</p>` : ""}${button("알림 조건 확인·수정", `edit-alert:${i}`, "quiet alert-edit-link")}</div>`;
 }
 
+function presetFields(profile, target) {
+  const condition = target === "alert" ? profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n") : profile.condition;
+  return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>감지 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML((profile.keywords ?? profile.watchPhrases ?? []).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요.</span></label>`;
+}
+
+function presetKeywordDetail(profile) {
+  return `<section class="settings-section"><h3>감지 키워드</h3><p>${escapeHTML((profile.keywords ?? []).join(", ") || "없음")}</p></section>`;
+}
+
 function renderAlertEditor() {
   const { index, tabId, profile } = alertEditor;
   const slot = state.slots[index];
@@ -120,10 +129,7 @@ function renderAlertEditor() {
   if (slot.alertSetup?.status === "generating") html += `<div class="notice" role="status">AI가 조건을 제안하고 있어요. 기다리는 동안 직접 작성해도 됩니다.</div>`;
   if (slot.alertSetup?.status === "error") html += `<div class="notice" role="alert">${escapeHTML(slot.alertSetup.error)} 직접 작성하거나 다시 시도해 주세요.</div>`;
   html += `<div class="notice stack"><label class="stack">AI에게 원하는 알림 설명하기<textarea rows="4" maxlength="1000" data-alert-request aria-label="AI에게 원하는 알림 설명하기" placeholder="한화가 경기 중일 때 한화의 갱킹, 상대가 한화 라인에 갱을 올 때, 한화가 참여하는 한타만 알려줘. 일정 안내는 빼줘.">${escapeHTML(alertEditor.request)}</textarea></label><p class="sub">누구의 어떤 상황을 알고 싶은지 적어 주세요. 요청을 우선해 조건을 새로 만들고 적용합니다.</p>${button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "요청 반영해 다시 만들기", "prompt-alert", "solid full", slot.alertSetup?.status === "generating")}</div>`;
-  html += `<label class="stack">알림 이름<input type="text" maxlength="60" data-alert-field="name" value="${escapeHTML(profile.name)}"></label>`;
-  html += `<div class="alert-rules">${profile.rules.map((rule, j) => `<div class="alert-rule"><label class="check"><input type="checkbox" data-alert-enabled="${j}" ${rule.enabled ? "checked" : ""}> 조건 ${j + 1} 사용</label><textarea rows="3" maxlength="240" data-alert-rule="${j}" aria-label="알림 조건 ${j + 1}">${escapeHTML(rule.text)}</textarea>${button("삭제", `remove-rule:${j}`, "quiet")}</div>`).join("")}</div>`;
-  html += button("＋ 조건 추가", "add-rule", "full", profile.rules.length >= 6);
-  html += `<label class="stack">요약에서 알고 싶은 내용<textarea rows="2" maxlength="300" data-alert-field="summaryFocus">${escapeHTML(profile.summaryFocus)}</textarea></label>`;
+  html += presetFields(profile, "alert");
   html += `<div class="two">${button("저장하고 적용", "save-alert", "solid")}${button("취소", "close-alert")}</div>`;
   html += button("프리셋으로 저장", "preset-from-alert", "full");
   return html;
@@ -150,12 +156,12 @@ function renderPresetDetail() {
   const profile = state.profiles.find(item => item.id === selectedPreset);
   if (!profile) return `${button("← 프리셋", "preset-back", "quiet")}<p>이 프리셋을 찾을 수 없어요.</p>`;
   const custom = profile.id.startsWith("custom-");
-  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${profile.summaryFocus ? `<section class="settings-section"><h3>요약에서 확인할 내용</h3><p>${escapeHTML(profile.summaryFocus)}</p></section>` : ""}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
+  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${presetKeywordDetail(profile)}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
 }
 function renderPresetCreate() {
   let html = `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading">${draft ? '<span class="sub">내용 확인</span>' : ""}<h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
   if (!draft) return html + `<label class="stack"><span class="sub">원하는 상황을 자유롭게 적어주세요.</span><textarea rows="5" maxlength="200" data-preset-request placeholder="한화 경기에서 한타나 갱킹이 시작하면 알려줘">${escapeHTML(presetRequest)}</textarea></label><p class="sub">예: 강의에서 과제나 시험 일정이 나오면 알려줘</p>${button(busy ? "초안을 만들고 있어요…" : "AI로 초안 만들기", "draft", "solid full", busy)}${button("직접 작성하기", "preset-manual", "quiet", busy)}`;
-  html += `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-preset-field="name" value="${escapeHTML(draft.name)}" placeholder="예: 한화 경기 알림"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-preset-field="condition" placeholder="어떤 상황에서 알림을 받을지 적어주세요">${escapeHTML(draft.condition)}</textarea></label><label class="stack"><span>요약에서 알고 싶은 내용 <span class="sub">선택</span></span><textarea rows="2" maxlength="300" data-preset-field="summaryFocus" placeholder="예: 경기 흐름과 주요 장면">${escapeHTML(draft.summaryFocus)}</textarea></label><details class="settings-advanced" data-profile-detail="preset-keywords"><summary>감지 키워드 <span class="sub">선택</span></summary><label class="stack"><span class="sub">쉼표로 구분해 입력하세요.</span><input type="text" data-preset-field="keywords" value="${escapeHTML((draft.keywords || []).join(", "))}" placeholder="한타, 갱킹, 바론"></label></details><div class="preset-actions">${button(busy ? "저장 중…" : "프리셋 저장", "save-draft", "solid full", busy)}${button("취소", "preset-back", "quiet", busy)}</div>`;
+  html += presetFields(draft, "preset") + `<div class="preset-actions">${button(busy ? "저장 중…" : "프리셋 저장", "save-draft", "solid full", busy)}${button("취소", "preset-back", "quiet", busy)}</div>`;
   return html;
 }
 function renderEntrust() {
@@ -285,7 +291,7 @@ async function dispatch(action) {
       generation++; busy = false; draft = null; confirmDelete = false; presetPage = "list"; return render();
     case "preset-from-alert": {
       const profile = alertEditor.profile;
-      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n"), summaryFocus: profile.summaryFocus || "", keywords: [], aliases: {} };
+      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n"), summaryFocus: "", keywords: profile.keywords ?? profile.watchPhrases ?? [], aliases: {} };
       alertEditor = null; tab = "entrust"; settingsTab = "presets"; presetPage = "create";
       return render();
     }
@@ -361,7 +367,9 @@ root.addEventListener("input", (event) => {
   if (alertEditor && dataset.alertRequest !== undefined) { alertEditor.request = value; alertEditor.dirty = true; }
   if (alertEditor && (dataset.alertField || dataset.alertRule !== undefined || dataset.alertEnabled !== undefined)) {
     alertEditor.dirty = true;
-    if (dataset.alertField) alertEditor.profile[dataset.alertField] = value;
+    if (dataset.alertField === "keywords") alertEditor.profile.keywords = value.split(",").map(word => word.trim()).filter(Boolean);
+    else if (dataset.alertField === "condition") alertEditor.profile.rules = [{ text: value, enabled: true }];
+    else if (dataset.alertField) alertEditor.profile[dataset.alertField] = value;
     if (dataset.alertRule !== undefined) alertEditor.profile.rules[Number(dataset.alertRule)].text = value;
     if (dataset.alertEnabled !== undefined) alertEditor.profile.rules[Number(dataset.alertEnabled)].enabled = event.target.checked;
   }
