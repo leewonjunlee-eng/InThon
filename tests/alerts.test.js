@@ -18,7 +18,7 @@ test('alert stays until a button, replaces on new event, and ignores late update
   const sent = [];
   const context = vm.createContext({
     document: { documentElement: root, createElement: tag => new Element(tag), getElementById: id => walk(root).find(node => node.id === id) },
-    chrome: { runtime: { onMessage: { addListener(fn) { listener = fn; } }, sendMessage: async message => { sent.push(message); return { ok: true }; } } },
+    chrome: { runtime: { getURL: path => `chrome-extension://test/${path}`, onMessage: { addListener(fn) { listener = fn; } }, sendMessage: async message => { sent.push(message); return { ok: true }; } } },
     setTimeout: () => assert.fail('alert must not schedule auto-dismiss'),
   });
   vm.runInContext(await readFile(new URL('../extension/content.js', import.meta.url), 'utf8'), context);
