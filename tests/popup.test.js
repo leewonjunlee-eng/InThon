@@ -76,6 +76,10 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     subscriber({ to: 'ui', state: structuredClone(state) });
     assert.equal(main.scrollTop, 90, 'background updates preserve the current scroll position');
     assert(main.innerHTML.includes('기본 설정'));
+    subscriber({ to: 'ui', state: { ...state, status: '1번 탭이 닫혔습니다.' } });
+    assert(!main.innerHTML.includes('1번 탭이 닫혔습니다.'));
+    assert(!main.innerHTML.includes('id="notice" class="status"'));
+
     assert.equal(toggle.hidden, true);
     await click('tab:sound');
     assert.equal(toggle.hidden, false);

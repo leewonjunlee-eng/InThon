@@ -182,10 +182,10 @@ function render() {
   if (toggle) { toggle.textContent = "세부설정"; toggle.hidden = tab === "entrust"; }
   const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
   let html = alertEditor ? renderAlertEditor() : picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
-  const message = notice || state.status;
+  const message = notice || (tab === "entrust" ? "" : state.status);
   const page = alertEditor ? "alert" : picker !== null ? `picker:${picker}` : tab === "entrust" ? `${tab}:${settingsTab}:${presetPage}` : tab;
   const scrollTop = page === renderedPage ? main.scrollTop : 0;
-  main.innerHTML = html + `<p id="notice" class="status" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
+  main.innerHTML = html + `<p id="notice" class="${tab === "entrust" ? "sub" : "status"}" role="status" aria-live="polite">${escapeHTML(message)}</p>`;
   main.scrollTop = scrollTop;
   renderedPage = page;
   main.querySelectorAll("details[data-profile-detail]").forEach(item => { item.open = openProfiles.has(item.dataset.profileDetail); });
