@@ -80,7 +80,8 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     await click('toggle-settings');
     assert.equal(toggle.textContent, '사운드홈');
     assert(!main.innerHTML.includes('감지 민감도'));
-    assert(main.innerHTML.includes('감지 · 알림'));
+    assert(main.innerHTML.includes('<h3>음향</h3>'));
+    assert(main.innerHTML.includes('<h3>알림</h3>'));
     assert(main.innerHTML.includes('aria-label="사운드홈으로 돌아가기"'));
     assert(!main.innerHTML.includes('대기 소리 음소거'));
     assert(!main.innerHTML.includes('메인 소리가 나면 대기 소리 줄이기'));
