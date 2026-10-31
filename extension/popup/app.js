@@ -151,8 +151,7 @@ function renderPresetDetail() {
   const profile = state.profiles.find(item => item.id === selectedPreset);
   if (!profile) return `${button("← 프리셋", "preset-back", "quiet")}<p>이 프리셋을 찾을 수 없어요.</p>`;
   const custom = profile.id.startsWith("custom-");
-  const connected = state.slots.map((slot, i) => slot.tabId !== null ? button(`<span>${label(i)} · ${escapeHTML(slot.title)}</span><span>${slot.profileId === profile.id ? "적용 중" : "적용"}</span>`, `preset-apply:${i}`, "preset-apply", slot.profileId === profile.id) : "").join("");
-  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${profile.summaryFocus ? `<section class="settings-section"><h3>요약에서 확인할 내용</h3><p>${escapeHTML(profile.summaryFocus)}</p></section>` : ""}<section class="settings-section"><h3>연결된 탭에 적용</h3>${connected || '<p class="sub">소리 화면에서 탭을 연결하면 적용할 수 있어요.</p>'}</section><div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
+  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${profile.summaryFocus ? `<section class="settings-section"><h3>요약에서 확인할 내용</h3><p>${escapeHTML(profile.summaryFocus)}</p></section>` : ""}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
 }
 function renderPresetCreate() {
   let html = `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${draft ? "내용 확인" : "새 프리셋"}</span><h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
@@ -307,11 +306,6 @@ async function dispatch(action) {
       draft = structuredClone(profile);
       if (!profile.id.startsWith("custom-")) { draft.id = `custom-${crypto.randomUUID()}`; draft.name += " 복사본"; }
       presetPage = "create"; return render();
-    }
-    case "preset-apply": {
-      const reply = await act("set-profile", { index: i, profileId: selectedPreset });
-      if (reply?.ok) { notice = "프리셋을 적용했어요."; render(); }
-      return;
     }
     case "preset-delete": confirmDelete = true; return render();
     case "preset-delete-cancel":
