@@ -1,3 +1,4 @@
+import { createTutorialShortcutRouter } from "./lib/tutorial-shortcuts.js";
 import { createFocusSuggestion } from "./lib/focus-suggestion.js";
 import { removeSlot } from "./lib/slots.js";
 import { savePreset, deletePreset } from "./lib/presets.js";
@@ -8,6 +9,8 @@ import { scanConnectedTab } from "./lib/page-context.js";
 import { normalizeConnection, applyBundledConnection } from "./lib/connection.js";
 import { SERVER_CONFIG } from "./server-config.js";
 import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf, nextConnectedSlot, pageKey } from "./lib/logic.js";
+
+const routeTutorialShortcut = createTutorialShortcutRouter(chrome.runtime);
 
 const STANDBY_DELAY_MS = 2000;
 const NAV_SETTLE_MS = 2500; // SPA는 주소가 먼저 바뀌고 제목과 본문이 뒤따른다.
@@ -713,12 +716,7 @@ chrome.windows.onFocusChanged.addListener(async () => {
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
-  // Chrome consumes registered shortcuts before the popup's DOM key handler.
-  // Give an open tutorial first refusal so practice never changes real audio.
-  try {
-    const reply = await chrome.runtime.sendMessage({ to: "tutorial", command });
-    if (reply?.handled === true) return;
-  } catch { /* No tutorial is open; use the normal shortcut action. */ }
+  if (routeTutorialShortcut(command)) return;
   await load();
   try {
     if (command === "connect-tab" && tab) await connectTab(tab);

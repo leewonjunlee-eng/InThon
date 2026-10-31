@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 // Exercise the real background message boundary with Chrome APIs replaced by fakes.
 test('frontend selection connects only its active tab and preserves audio controls', async () => {
   let handler, latest, shortcut, notificationClick, notificationClosed, tabRemoved, tabActivated;
-  let tutorialOpen = false;
+  let tutorialConnect, tutorialDisconnect;
   const tutorialCommands = [];
   let activeId = 11;
   let windowFocused = true;
@@ -32,9 +32,9 @@ test('frontend selection connects only its active tab and preserves audio contro
     storage: { session: { get: async () => structuredClone(sessionData), set: async value => Object.assign(sessionData, structuredClone(value)) }, local: storage() },
     runtime: {
       getContexts: async () => [],
+      onConnect: { addListener(fn) { tutorialConnect = fn; } },
       onMessage: { addListener(fn) { handler = fn; } },
       async sendMessage(message) {
-        if (message.to === 'tutorial') { tutorialCommands.push(message.command); return { handled: tutorialOpen }; }
         if (message.to === 'ui') latest = structuredClone(message.state);
         else engineCommands.push(message);
         return { ok: true };
@@ -135,7 +135,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[0].muted, true, 'restore must recover mute state changed by focus');
     await send('focus', { index: 0 });
     assert(engineCommands.some(item => item.cmd === 'output' && item.tabId === 11 && item.gain === 0.8));
-    tutorialOpen = true;
+    tutorialConnect({ name: 'catchsound-tutorial', onMessage: event, onDisconnect: { addListener(fn) { tutorialDisconnect = fn; } }, postMessage(message) { tutorialCommands.push(message.command); } });
     const beforePractice = JSON.stringify(latest);
     const engineCount = engineCommands.length;
     for (const command of ['connect-tab', 'switch-focus', 'restore']) await shortcut(command, tabs[1]);
@@ -143,7 +143,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(JSON.stringify(latest), beforePractice, 'tutorial shortcuts must not change real state');
     assert.equal(engineCommands.length, engineCount, 'tutorial shortcuts must not change real audio');
     assert.equal(activeId, 11, 'tutorial shortcuts must not activate another tab');
-    tutorialOpen = false;
+    tutorialDisconnect();
     await shortcut('switch-focus');
     assert.equal(activeId, 12, 'keyboard switch must activate the other tab');
     assert.equal(latest.slots[1].role, 'main');
