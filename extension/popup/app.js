@@ -1,3 +1,4 @@
+import { numberConditions } from "../lib/presets.js";
 import { createTransport } from "../lib/transport.js";
 const transport = await createTransport();
 if (transport.isExtension) document.documentElement.classList.add("extension-popup");
@@ -113,12 +114,12 @@ function renderAlertSummary(slot, i) {
 }
 
 function presetFields(profile, target) {
-  const condition = target === "alert" ? profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n") : profile.condition;
+  const condition = target === "alert" ? numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")) : profile.condition;
   return `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-${target}-field="name" value="${escapeHTML(profile.name)}"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-${target}-field="condition">${escapeHTML(condition)}</textarea></label><label class="stack"><span>감지 키워드</span><input type="text" data-${target}-field="keywords" value="${escapeHTML((profile.keywords ?? profile.watchPhrases ?? []).join(", "))}" placeholder="한타, 갱킹, 바론"><span class="sub">쉼표로 구분해 입력하세요.</span></label>`;
 }
 
 function presetKeywordDetail(profile) {
-  return `<section class="settings-section"><h3>감지 키워드</h3><p>${escapeHTML((profile.keywords ?? []).join(", ") || "없음")}</p></section>`;
+  return `<section class="settings-section"><h3>감지 키워드</h3><div class="preset-description">${escapeHTML((profile.keywords ?? []).join(", ") || "없음")}</div></section>`;
 }
 
 function renderAlertEditor() {
@@ -155,7 +156,7 @@ function renderPresetDetail() {
   const profile = state.profiles.find(item => item.id === selectedPreset);
   if (!profile) return `${button("← 프리셋", "preset-back", "quiet")}<p>이 프리셋을 찾을 수 없어요.</p>`;
   const custom = profile.id.startsWith("custom-");
-  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${presetKeywordDetail(profile)}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
+  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading">${custom ? "" : '<span class="sub">기본 프리셋</span>'}<h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${presetKeywordDetail(profile)}<div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<dialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><h3 id="delete-title">이 프리셋을 삭제할까요?</h3><p id="delete-description">적용 중인 탭의 알림도 해제돼요.</p>${notice ? `<p role="alert">${escapeHTML(notice)}</p>` : ""}<div class="two">${button("취소", "preset-delete-cancel", "", busy, "autofocus")}${button(busy ? "삭제 중…" : "삭제하기", "preset-delete-confirm", "danger", busy)}</div></dialog>` : ""}`;
 }
 function renderPresetCreate() {
   let html = `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading">${draft ? '<span class="sub">내용 확인</span>' : ""}<h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
@@ -290,7 +291,7 @@ async function dispatch(action) {
       generation++; busy = false; draft = null; confirmDelete = false; presetPage = "list"; return render();
     case "preset-from-alert": {
       const profile = alertEditor.profile;
-      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n"), summaryFocus: "", keywords: profile.keywords ?? profile.watchPhrases ?? [], aliases: {} };
+      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: numberConditions(profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n")), summaryFocus: "", keywords: profile.keywords ?? profile.watchPhrases ?? [], aliases: {} };
       alertEditor = null; tab = "entrust"; settingsTab = "presets"; presetPage = "create";
       return render();
     }

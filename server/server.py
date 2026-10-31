@@ -138,7 +138,7 @@ def classify(body):
 
 def profile(body):
     result = ask_json(
-        "사용자의 한 줄 요청을 감지 프로필로 바꾼다. name은 짧은 주제 이름이다. relatedSites는 실제 도메인만 넣는다. keywords는 그 사건이 일어났을 때만 나오는 구체적인 표현만 넣고, 팀 이름이나 경기처럼 평소에도 나오는 단어는 넣지 않는다. "
+        "사용자의 한 줄 요청을 감지 프로필로 바꾼다. name은 짧은 주제 이름이다. condition은 각 조건을 별도 줄에 쓰고 1. 2. 3. 형식으로 번호를 붙인다. 조건이 하나여도 1.로 시작한다. relatedSites는 실제 도메인만 넣는다. keywords는 그 사건이 일어났을 때만 나오는 구체적인 표현만 넣고, 팀 이름이나 경기처럼 평소에도 나오는 단어는 넣지 않는다. "
         '형식: {"name":"","relatedSites":[],"relatedWords":[],"keywords":[],"condition":"","summaryFocus":""}',
         text_field(body, "request", 500),
     )
