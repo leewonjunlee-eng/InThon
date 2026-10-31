@@ -412,5 +412,5 @@ html.extension-popup { width: 460px; height: 600px; }
   #ab-mock main { padding: 12px 14px 20px; }
 }
 
-#ab-mock .brand-lockup { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+#ab-mock .brand-lockup { display: flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 700; }
 #ab-mock .brand-lockup img { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; }
