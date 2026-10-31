@@ -1,13 +1,15 @@
+import { savePreset, deletePreset } from "../extension/lib/presets.js";
 import { AudioEngine } from "../extension/engine.js";
 import { createApi } from "../extension/lib/api.js";
 import { normalizeConnection } from "../extension/lib/connection.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "../extension/lib/auto-profiles.js";
-import { DEFAULT_SETTINGS, PROFILES, emptySlot, computeRoles, gainFor } from "../extension/lib/logic.js";
+import { DEFAULT_SETTINGS, PROFILES, emptySlot, computeRoles, gainFor, nextConnectedSlot } from "../extension/lib/logic.js";
 
 // Preview uses bundled audio, never browser tabs or a microphone.
 export function createPreviewTransport() {
   const available = [
     { id: 1, title: "LCK 모의 중계", host: "샘플 음원 · 롤", topic: "롤", file: "lol" },
+    { id: 3, title: "강의 샘플 · 추가 연결 테스트", host: "샘플 음원 · 강의", topic: "강의", file: "lecture" },
     { id: 2, title: "운영체제 강의", host: "샘플 음원 · 강의", topic: "강의", file: "lecture" },
   ];
   const state = {
@@ -100,6 +102,11 @@ export function createPreviewTransport() {
     try {
       switch (cmd) {
         case "state": break;
+        case "add-slot":
+          state.slots.push(emptySlot(state.settings));
+          selections.push(null);
+          publish();
+          return { ok: true, result: state.slots.length - 1 };
         case "connect": await connect(index, payload.tabId); void generateAlerts(index); break;
         case "disconnect": {
           const item = media.get(slot.tabId);
@@ -121,8 +128,8 @@ export function createPreviewTransport() {
           break;
         case "switch": {
           const current = state.manual ?? state.slots.findIndex(item => item.role === "main");
-          const next = current === 0 ? 1 : 0;
-          if (state.slots[next].tabId !== null) {
+          const next = nextConnectedSlot(state.slots, current);
+          if (next !== -1) {
             focus(next);
           }
           break;
@@ -133,7 +140,7 @@ export function createPreviewTransport() {
             state.manual = previous.manual;
             state.slots.forEach((item, i) => {
               const old = previous.slots[i];
-              if (old.tabId === item.tabId) Object.assign(item, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
+              if (old && old.tabId === item.tabId) Object.assign(item, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
             });
           }
           state.snapshot = null; state.peek = null;
@@ -156,7 +163,8 @@ export function createPreviewTransport() {
           if (slot.profileId === "auto" && !slot.alertSetup) void generateAlerts(index);
           break;
         case "create-profile": return { ok: true, result: { ...await api.profile(payload.request), id: `custom-${Date.now()}`, aliases: {} } };
-        case "save-profile": state.profiles.push(payload.profile); break;
+        case "save-profile": state.profiles = savePreset(state.profiles, payload.profile); break;
+        case "delete-profile": state.profiles = deletePreset(state.profiles, state.slots, payload.id); break;
         case "generate-alerts":
           if (!slot || slot.tabId !== payload.tabId) throw new Error("연결된 탭이 바뀌었습니다.");
           if (payload.request !== undefined && typeof payload.request !== "string") throw new Error("원하는 알림을 글로 입력해 주세요.");

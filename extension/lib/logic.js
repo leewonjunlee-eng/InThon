@@ -171,3 +171,12 @@ export function frameDiff(previous, current) {
 export const clock = (time) => new Date(time).toTimeString().slice(0, 8);
 
 export const linesToText = (lines) => lines.map((line) => `[${clock(line.t)}] ${line.text}`).join("\n");
+
+// Cycle through connected slots, skipping any empty slots.
+export function nextConnectedSlot(slots, current) {
+  for (let offset = 1; offset <= slots.length; offset++) {
+    const index = (Math.max(-1, current) + offset) % slots.length;
+    if (slots[index].tabId !== null) return index;
+  }
+  return -1;
+}

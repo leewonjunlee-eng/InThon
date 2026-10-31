@@ -8,7 +8,7 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
   const root = { addEventListener: (event, handler) => handlers.set(event, handler) };
   const slot = { ...emptySlot(), tabId: 11, title: "제품 공개", host: "example.com", role: "standby", profileId: "auto",
     alertSetup: { status: "ready", source: "title", profile: { name: "판매 알림", summaryFocus: "가격", rules: [{ text: "가격이 공개되면", enabled: true }] } } };
-  const state = { slots: [slot, emptySlot()], profiles: [], settings: DEFAULT_SETTINGS, view: { tabId: 11 }, status: "", available: [{ id: 11, title: "제품 공개" }, { id: 12, title: "다른 탭" }], manual: null, peek: null };
+  const state = { slots: [slot, emptySlot()], profiles: [{ id: "lol", name: "롤" }, { id: "custom-game", name: "내 경기" }], settings: DEFAULT_SETTINGS, view: { tabId: 11 }, status: "", available: [{ id: 11, title: "제품 공개" }, { id: 12, title: "다른 탭" }], manual: null, peek: null };
   let subscriber;
   const documentBefore = globalThis.document, chromeBefore = globalThis.chrome;
   globalThis.document = { documentElement: { classList: { add() {} } }, activeElement: null,
@@ -23,6 +23,11 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
   try {
     await import("../extension/popup/app.js");
     await new Promise(resolve => setImmediate(resolve));
+    assert(main.innerHTML.includes('aria-label="1번 탭 알림 프리셋"'));
+    assert(main.innerHTML.includes('value="custom-game"'));
+    handlers.get('change')({ target: { dataset: { profile: '0' }, value: 'custom-game' } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert(sent.some(message => message.cmd === 'set-profile' && message.index === 0 && message.profileId === 'custom-game'));
     assert(main.innerHTML.includes("알림 조건 확인·수정"));
     await click("edit-alert:0");
     assert(main.innerHTML.includes("가격이 공개되면"));
@@ -49,19 +54,28 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     assert.equal(generate.tabId, 11);
     assert.equal(generate.request, request);
     await click('tab:entrust');
-    assert(main.innerHTML.includes('AI 서버 연결'));
-    handlers.get('input')({ target: { dataset: { serverField: 'serverUrl' }, value: 'https://shared.example' } });
-    handlers.get('input')({ target: { dataset: { serverField: 'token' }, value: 'relay-access' } });
-    await click('save-server');
-    const settings = sent.find(message => message.cmd === 'settings' && message.patch.serverUrl);
-    assert.equal(settings.patch.serverUrl, 'https://shared.example');
-    assert.equal(settings.patch.token, 'relay-access');
-    assert(sent.some(message => message.cmd === 'test-server'));
-    assert(main.innerHTML.includes('레블업 AI 서버 연결을 확인했어요'));
-    assert(main.innerHTML.includes('공용 서버 기본 연결 복원'));
-    await click('restore-server');
-    assert(sent.some(message => message.cmd === 'restore-server'));
-    assert(main.innerHTML.includes('공용 AI 서버 연결을 복원했어요'));
+    assert(main.innerHTML.includes('기본 설정'));
+    assert(main.innerHTML.includes('감지 · 알림'));
+    assert(main.innerHTML.includes('aria-label="소리 구성으로 돌아가기"'));
+    assert(!main.innerHTML.includes('대기 소리 음소거'));
+    assert(!main.innerHTML.includes('메인 소리가 나면 대기 소리 줄이기'));
+    assert(!main.innerHTML.includes('AI 서버 연결'));
+    await click('settings-tab:presets');
+    assert(main.innerHTML.includes('내 프리셋'));
+    await click('preset-new');
+    assert(main.innerHTML.includes('AI로 초안 만들기'));
+    await click('draft');
+    assert(main.innerHTML.includes('알림을 받고 싶은 상황을 적어주세요'));
+    await click('preset-manual');
+    handlers.get('input')({ target: { dataset: { presetField: 'name' }, value: '내 경기 알림' } });
+    handlers.get('input')({ target: { dataset: { presetField: 'condition' }, value: '한타가 시작되면' } });
+    subscriber({ to: 'ui', state: structuredClone(state) });
+    assert(main.innerHTML.includes('한타가 시작되면'), 'state updates preserve preset draft');
+    await click('save-draft');
+    const savedPreset = sent.find(message => message.cmd === 'save-profile');
+    assert.equal(savedPreset.profile.name, '내 경기 알림');
+    assert.equal(savedPreset.profile.condition, '한타가 시작되면');
+    assert(savedPreset.profile.id.startsWith('custom-'));
     await click('tab:sound');
     await click('edit-alert:0');
     globalThis.document.activeElement = { tagName: 'TEXTAREA' };

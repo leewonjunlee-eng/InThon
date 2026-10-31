@@ -62,9 +62,23 @@ test('preview preserves AI requests, focus/switch/restore, audio controls and di
     await send('save-alerts', { index: 0, tabId: 1, profile: { name: '수정 조건', rules: [{ text: '한화 갱킹', enabled: false }] } });
     assert.equal(state.slots[0].alertSetup.edited, true);
     assert.equal(state.slots[0].alertSetup.request, '한화 한타만 알려줘');
+    assert.equal((await send('add-slot')).result, 2);
+    await send('connect', { index: 2, tabId: 3 });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(state.slots[2].tabId, 3);
+    await send('focus', { index: 1 });
+    await send('switch');
+    assert.equal(state.manual, 2);
+    await send('switch');
+    assert.equal(state.manual, 0);
+    await send('add-slot');
+    await send('restore');
+    assert.equal(state.manual, 2);
+
   } finally {
-    await transport.send('disconnect', { index: 0 });
-    await transport.send('disconnect', { index: 1 });
+    for (let index = 0; index < state.slots.length; index++) {
+      if (state.slots[index].tabId !== null) await transport.send('disconnect', { index });
+    }
     Object.assign(globalThis, before);
   }
 });

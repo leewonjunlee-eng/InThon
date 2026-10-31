@@ -11,9 +11,15 @@ let notice = "";
 let draft = null;
 let busy = false;
 let alertEditor = null;
-let serverDraft = null;
-let serverTesting = false;
+let settingsTab = "general";
+let presetPage = "list";
+let selectedPreset = null;
+let presetRequest = "";
+let generation = 0;
+let confirmDelete = false;
 const connecting = new Set();
+let addingSlot = false;
+const sourceUsedElsewhere = (id, index) => state.slots.some((slot, i) => i !== index && slot.tabId === id) || selections.some((source, i) => i !== index && source?.id === id);
 
 const escapeHTML = (value) =>
   String(value ?? "").replace(
@@ -28,9 +34,6 @@ const ROLE = { main: "메인", standby: "대기" };
 
 function button(text, action, cls = "", disabled = false, extra = "") {
   return `<button type="button" class="${cls}" data-action="${action}" ${disabled ? "disabled" : ""} ${extra}>${text}</button>`;
-}
-function toggle(name, text) {
-  return `<label class="check"><input type="checkbox" data-setting="${name}" ${state.settings[name] ? "checked" : ""}> ${text}</label>`;
 }
 function send(cmd, payload = {}) {
   return transport.send(cmd, payload);
@@ -58,7 +61,7 @@ function renderPicker() {
   const sources = state.available ?? state.audible;
   let html = button("← 슬롯으로 돌아가기", "back", "quiet") + `<div class="row"><h3>연결할 탭 선택</h3></div><p class="sub">탭을 누르면 바로 슬롯에 선택됩니다.</p><div class="picker">`;
   for (const source of sources) {
-    const used = state.slots[1-i].tabId === source.id || selections[1-i]?.id === source.id;
+    const used = sourceUsedElsewhere(source.id, i);
     html += button(`<span>${escapeHTML(source.title)}<span class="sub">${escapeHTML(source.host)}${source.audible ? " · 재생 중" : ""}</span></span>${used ? '<span class="sub">다른 슬롯에서 사용 중</span>' : ""}`, `select:${source.id}`, "choice", used);
   }
   if (!sources.length) html += '<p class="sub">연결할 웹 탭이 없습니다. 먼저 동영상이나 음악 탭을 열어주세요.</p>';
@@ -77,6 +80,7 @@ function renderSlot(slot, i) {
   if (!connected) return html + renderEmptySlot(i) + "</article>";
   const volume = slot.volumes[slot.role ?? "main"];
   html += `<div class="source"><strong>${escapeHTML(slot.title)}</strong><span class="sub">${escapeHTML(slot.host)} · 주제 ${escapeHTML(slot.topic ?? "미분류")}</span></div>`;
+  html += `<label class="stack slot-preset"><span class="sub">알림 프리셋</span><select data-profile="${i}" aria-label="${label(i)} 탭 알림 프리셋"><option value="" ${!slot.profileId ? "selected" : ""}>알림 사용 안 함</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI 자동 설정</option>${state.profiles.map(profile => `<option value="${escapeHTML(profile.id)}" ${slot.profileId === profile.id ? "selected" : ""}>${escapeHTML(profile.name)}</option>`).join("")}</select></label>`;
   html += renderAlertSummary(slot, i);
   html += `<label><span class="row"><span>${ROLE[slot.role] ?? ""} 볼륨</span><output id="volume-${i}">${volume}%${slot.muted ? " · 음소거" : ""}</output></span><input type="range" min="0" max="100" step="1" value="${volume}" data-volume="${i}" aria-label="소리 ${label(i)} 볼륨"></label>`;
   html += `<div class="segments" role="group" aria-label="소리 ${label(i)} 출력 방향">${[-1, 0, 1].map((p, k) => button(["왼쪽", "양쪽", "오른쪽"][k], `pan:${i}:${p}`, "", false, `aria-pressed="${slot.pan === p}"`)).join("")}</div>`;
@@ -89,23 +93,19 @@ function renderSound() {
   const connected = state.slots.filter((slot) => slot.tabId !== null).length;
   let html = "";
 
-  html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / 2 연결됨</span></div>`;
+  html += `<div class="row"><h3>내 소리 구성</h3><span class="sub">${connected} / ${state.slots.length} 연결됨</span></div>`;
   if (state.returnSummary) html += renderReturn();
   if (state.peek !== null) {
     html += `<div class="notice"><h3>${label(state.peek)}를 잠깐 확인 중</h3><div class="two">${button("확인 끝 · 복귀", "restore", "solid")}${button("계속 집중", "keep")}</div></div>`;
   }
   html += state.slots.map(renderSlot).join("");
+  html += button(addingSlot ? "추가 중…" : "＋ 탭 추가", "add-slot", "full add-slot", addingSlot);
   return html;
 }
 
 function renderReturn() {
   const item = state.returnSummary;
   return `<div class="notice"><h3>놓친 내용 · 소리 ${label(item.slot)} (${item.minutes}분)</h3><p>${escapeHTML(item.summary)}</p>${button("확인", "clear-return", "quiet")}</div>`;
-}
-
-function renderProfileSelect(slot, i) {
-  const options = state.profiles.map((item) => `<option value="${escapeHTML(item.id)}" ${slot.profileId === item.id ? "selected" : ""}>${escapeHTML(item.name)}</option>`).join("");
-  return `<label class="stack"><span>소리 ${label(i)} · ${escapeHTML(slot.title).slice(0, 20)}</span><select data-profile="${i}"><option value="" ${!slot.profileId ? "selected" : ""}>대신 듣지 않음</option><option value="auto" ${slot.profileId === "auto" ? "selected" : ""}>AI가 만든 이 탭의 조건</option>${options}</select></label>${renderAlertSummary(slot, i)}`;
 }
 
 function renderAlertSummary(slot, i) {
@@ -132,32 +132,45 @@ function renderAlertEditor() {
   html += button("＋ 조건 추가", "add-rule", "full", profile.rules.length >= 6);
   html += `<label class="stack">요약에서 알고 싶은 내용<textarea rows="2" maxlength="300" data-alert-field="summaryFocus">${escapeHTML(profile.summaryFocus)}</textarea></label>`;
   html += `<div class="two">${button("저장하고 적용", "save-alert", "solid")}${button("취소", "close-alert")}</div>`;
+  html += button("프리셋으로 저장", "preset-from-alert", "full");
   html += button(slot.alertSetup?.status === "generating" ? "AI 생성 중…" : "AI로 다시 제안받기", "regenerate-alert", "full", slot.alertSetup?.status === "generating");
   return html;
 }
 
-function renderEntrust() {
-  const connected = state.slots.map((slot, i) => (slot.tabId !== null ? renderProfileSelect(slot, i) : "")).join("");
-  let html = button("← 소리로 돌아가기", "tab:sound", "quiet") + `<h3>세부 설정</h3>`;
-  html += connected || `<div class="notice">먼저 소리 화면에서 연결해 주세요.</div>`;
-  html += `<label class="stack"><span>조건을 한 줄로 적기</span><input type="text" id="request" maxlength="200" placeholder="두산 득점하면 알려줘"></label>${button(busy ? "만드는 중…" : "프로필 만들기", "draft", "full", busy)}`;
-  if (draft) {
-    html += `<div class="notice"><h3>${escapeHTML(draft.name)}</h3><p>조건: ${escapeHTML(draft.condition)}</p><p>단어: ${escapeHTML(draft.keywords.join(", "))}</p><p>요약 초점: ${escapeHTML(draft.summaryFocus)}</p><div class="two">${button("저장", "save-draft", "solid")}${button("취소", "drop-draft")}</div></div>`;
-  }
-  html += renderProfiles();
-  const { settings } = state;
-  const connection = serverDraft ?? settings;
-  html += `<details class="profile-detail" hidden><summary>AI 서버 연결</summary><div class="stack"><p class="sub">다른 PC에서도 레블업 AI를 사용하려면 공용 중계 서버에 연결하세요. 레블업 API 키는 서버에만 보관됩니다.</p><label class="stack">서버 주소<input type="url" data-server-field="serverUrl" value="${escapeHTML(connection.serverUrl)}" placeholder="https://your-server.vercel.app"></label><label class="stack">서버 접속 토큰<input type="password" data-server-field="token" value="${escapeHTML(connection.token)}" autocomplete="off"></label><p class="sub">접속 토큰은 중계 서버용입니다. 레블업 API 키를 입력하지 마세요.</p>${button(serverTesting ? "연결 확인 중…" : "저장하고 연결 확인", "save-server", "full", serverTesting)}${button("공용 서버 기본 연결 복원", "restore-server", "full", serverTesting)}</div></details>`;
-  html += `<h3>설정</h3><div class="stack">${toggle("auto", "보는 화면에 따라 자동 전환")}${toggle("bgMute", "대기 중에는 음소거")}${toggle("dnd", "방해 금지 (알림 없이 모아 두기)")}${toggle("duck", "메인 소리가 날 때 대기 소리 더 낮추기")}${toggle("screen", "화면 변화도 감지 (변경 후 재연결 필요 · 이미지가 서버로 전송됨)")}</div>`;
-  html += `<label class="stack"><span>감지 민감도</span><select data-setting-select="sensitivity">${[["low", "낮음 (큰 순간만)"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
-  html += `<label class="stack"><span>메인 음량 <output id="setting-focusVol">${settings.focusVol}%</output></span><input type="range" min="0" max="100" value="${settings.focusVol}" data-setting-range="focusVol" aria-label="메인 음량"></label>`;
-  html += `<label class="stack"><span>대기 음량 <output id="setting-bgVol">${settings.bgVol}%</output></span><input type="range" min="0" max="100" value="${settings.bgVol}" data-setting-range="bgVol" aria-label="대기 음량"></label>`;
-  return html + `<div class="notice">단축키: Control+Shift+K 탭 연결, Control+Shift+→ 다른 소리에 집중, Control+Shift+← 복귀. 변경은 chrome://extensions/shortcuts 에서 합니다.</div>`;
+function settingsSwitch(name, title, description = "") {
+  return `<label class="setting-row"><span><span class="setting-title">${title}</span>${description ? `<span class="sub">${description}</span>` : ""}</span><input class="setting-switch" type="checkbox" role="switch" data-setting="${name}" ${state.settings[name] ? "checked" : ""}></label>`;
 }
-
-function renderProfiles() {
-  const list = values => values?.length ? values.map(escapeHTML).join(", ") : "없음";
-  return `<section class="profile-list" aria-label="프로필 내용"><h3>프로필 내용</h3><p class="sub">이름을 누르면 감지 조건과 키워드를 확인할 수 있어요.</p>${state.profiles.map(profile => `<details class="profile-detail" data-profile-detail="${escapeHTML(profile.id)}"><summary>${escapeHTML(profile.name)}</summary><dl><dt>감지 조건</dt><dd>${escapeHTML(profile.condition)}</dd><dt>감지 키워드</dt><dd>${list(profile.keywords)}</dd><dt>요약 초점</dt><dd>${escapeHTML(profile.summaryFocus)}</dd><dt>관련 사이트</dt><dd>${list(profile.relatedSites)}</dd><dt>관련 단어</dt><dd>${list(profile.relatedWords)}</dd></dl></details>`).join("")}</section>`;
+function volumeSetting(name, title) {
+  return `<label class="setting-volume"><span class="row"><span>${title}</span><output id="setting-${name}">${state.settings[name]}%</output></span><input type="range" min="0" max="100" value="${state.settings[name]}" data-setting-range="${name}" aria-label="${title}"></label>`;
+}
+function renderGeneral() {
+  return `<section class="settings-section"><h3>소리</h3><div class="settings-card">${settingsSwitch("auto", "보는 탭에 따라 자동 전환")}${volumeSetting("focusVol", "메인 음량")}${volumeSetting("bgVol", "대기 음량")}</div></section>
+    <section class="settings-section"><h3>감지 · 알림</h3><div class="settings-card">${settingsSwitch("dnd", "방해 금지", "알림을 띄우지 않고 모아둬요.")}<label class="setting-row"><span>감지 민감도</span><select data-setting-select="sensitivity" aria-label="감지 민감도">${[["low", "낮음"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${state.settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label></div></section>
+    <details class="settings-advanced" data-profile-detail="advanced"><summary>고급 설정</summary><div class="settings-card">${settingsSwitch("screen", "화면 변화 감지", "이미지가 서버로 전송돼요. 변경 후 탭을 다시 연결해 주세요.")}</div><p class="sub">단축키: Ctrl+Shift+K 연결 · Ctrl+Shift+→ 집중 전환 · Ctrl+Shift+← 복귀</p></details>`;
+}
+function renderPresetList() {
+  const custom = state.profiles.filter(profile => profile.id.startsWith("custom-"));
+  const builtIn = state.profiles.filter(profile => !profile.id.startsWith("custom-"));
+  const items = profiles => profiles.map(profile => button(`<span class="preset-copy"><strong>${escapeHTML(profile.name)}</strong><span class="sub">${escapeHTML(profile.condition || "알림 조건 확인하기")}</span></span><span aria-hidden="true">›</span>`, `preset-view:${state.profiles.indexOf(profile)}`, "preset-item")).join("");
+  return `<section class="settings-section"><div class="preset-section-heading"><h3>내 프리셋 <span class="count">${custom.length}</span></h3>${button("＋ 만들기", "preset-new", "preset-add")}</div>${custom.length ? `<div class="preset-list">${items(custom)}</div>` : `<div class="preset-empty"><p>나만의 알림을 만들어보세요</p><p class="sub">원하는 순간을 적으면 AI가 초안을 만들어요.</p>${button("첫 프리셋 만들기", "preset-new", "quiet first-preset-link")}</div>`}</section><section class="settings-section"><h3>기본 프리셋</h3><div class="preset-list">${items(builtIn)}</div></section>`;
+}
+function renderPresetDetail() {
+  const profile = state.profiles.find(item => item.id === selectedPreset);
+  if (!profile) return `${button("← 프리셋", "preset-back", "quiet")}<p>이 프리셋을 찾을 수 없어요.</p>`;
+  const custom = profile.id.startsWith("custom-");
+  const connected = state.slots.map((slot, i) => slot.tabId !== null ? button(`<span>${label(i)} · ${escapeHTML(slot.title)}</span><span>${slot.profileId === profile.id ? "적용 중" : "적용"}</span>`, `preset-apply:${i}`, "preset-apply", slot.profileId === profile.id) : "").join("");
+  return `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${custom ? "내 프리셋" : "기본 프리셋"}</span><h3>${escapeHTML(profile.name)}</h3></div><section class="settings-section"><h3>이럴 때 알려줘요</h3><div class="preset-description">${escapeHTML(profile.condition)}</div></section>${profile.summaryFocus ? `<section class="settings-section"><h3>요약에서 확인할 내용</h3><p>${escapeHTML(profile.summaryFocus)}</p></section>` : ""}<section class="settings-section"><h3>연결된 탭에 적용</h3>${connected || '<p class="sub">소리 화면에서 탭을 연결하면 적용할 수 있어요.</p>'}</section><div class="preset-actions">${button(custom ? "수정하기" : "복사해서 수정", "preset-edit", "full")}${custom ? button("삭제", "preset-delete", "quiet danger") : ""}</div>${confirmDelete ? `<div class="notice stack"><p>이 프리셋을 삭제할까요? 적용 중인 탭의 알림도 해제돼요.</p><div class="two">${button("삭제하기", "preset-delete-confirm", "danger")}${button("취소", "preset-delete-cancel")}</div></div>` : ""}`;
+}
+function renderPresetCreate() {
+  let html = `${button("← 프리셋", "preset-back", "quiet back-link")}<div class="preset-heading"><span class="sub">${draft ? "내용 확인" : "새 프리셋"}</span><h3>${draft ? "알림 조건을 다듬어주세요" : "어떤 순간을 알려드릴까요?"}</h3></div>`;
+  if (!draft) return html + `<label class="stack"><span class="sub">원하는 상황을 자유롭게 적어주세요.</span><textarea rows="5" maxlength="200" data-preset-request placeholder="한화 경기에서 한타나 갱킹이 시작하면 알려줘">${escapeHTML(presetRequest)}</textarea></label><p class="sub">예: 강의에서 과제나 시험 일정이 나오면 알려줘</p>${button(busy ? "초안을 만들고 있어요…" : "AI로 초안 만들기", "draft", "solid full", busy)}${button("직접 작성하기", "preset-manual", "quiet", busy)}`;
+  html += `<label class="stack"><span>프리셋 이름</span><input type="text" maxlength="60" data-preset-field="name" value="${escapeHTML(draft.name)}" placeholder="예: 한화 경기 알림"></label><label class="stack"><span>알림 조건</span><textarea rows="5" maxlength="2000" data-preset-field="condition" placeholder="어떤 상황에서 알림을 받을지 적어주세요">${escapeHTML(draft.condition)}</textarea></label><label class="stack"><span>요약에서 알고 싶은 내용 <span class="sub">선택</span></span><textarea rows="2" maxlength="300" data-preset-field="summaryFocus" placeholder="예: 경기 흐름과 주요 장면">${escapeHTML(draft.summaryFocus)}</textarea></label><details class="settings-advanced" data-profile-detail="preset-keywords"><summary>감지 키워드 <span class="sub">선택</span></summary><label class="stack"><span class="sub">쉼표로 구분해 입력하세요.</span><input type="text" data-preset-field="keywords" value="${escapeHTML((draft.keywords || []).join(", "))}" placeholder="한타, 갱킹, 바론"></label></details><div class="preset-actions">${button(busy ? "저장 중…" : "프리셋 저장", "save-draft", "solid full", busy)}${button("취소", "preset-back", "quiet", busy)}</div>`;
+  return html;
+}
+function renderEntrust() {
+  if (presetPage === "detail" && settingsTab === "presets") return renderPresetDetail();
+  if (presetPage === "create" && settingsTab === "presets") return renderPresetCreate();
+  return `<div class="settings-top">${button("←", "tab:sound", "quiet back-link", false, 'aria-label="소리 구성으로 돌아가기"')}<h3>세부설정</h3></div><nav class="settings-tabs" aria-label="세부설정 분류">${button("기본 설정", "settings-tab:general", "", false, `aria-pressed="${settingsTab === "general"}"`)}${button("프리셋", "settings-tab:presets", "", false, `aria-pressed="${settingsTab === "presets"}"`)}</nav><div class="settings-content">${settingsTab === "general" ? renderGeneral() : renderPresetList()}</div>`;
 }
 
 function render() {
@@ -175,10 +188,19 @@ async function dispatch(action) {
   notice = "";
   switch (name) {
     case "tab":
+      generation++; busy = false;
       alertEditor = null;
       tab = arg;
       picker = null;
       return render();
+    case "add-slot": {
+      if (addingSlot) return;
+      addingSlot = true; render();
+      const reply = await act("add-slot");
+      addingSlot = false;
+      if (reply?.ok) picker = reply.result;
+      return render();
+    }
     case "pick":
       picker = i;
       return render();
@@ -215,32 +237,10 @@ async function dispatch(action) {
       if (reply?.ok) { alertEditor = null; notice = "요청을 반영해 알림 조건을 만들고 있어요."; render(); }
       return;
     }
-    case "save-server": {
-      if (serverTesting) return;
-      serverTesting = true;
-      render();
-      try {
-        const saved = await act("settings", { patch: serverDraft ?? { serverUrl: state.settings.serverUrl, token: state.settings.token } });
-        if (!saved?.ok) return;
-        const checked = await act("test-server");
-        if (checked?.ok) { serverDraft = null; notice = "레블업 AI 서버 연결을 확인했어요."; }
-      } finally { serverTesting = false; render(); }
-      return;
-    }
-    case "restore-server": {
-      if (serverTesting) return;
-      serverTesting = true;
-      render();
-      try {
-        const reply = await act("restore-server");
-        if (reply?.ok) { serverDraft = null; notice = "공용 AI 서버 연결을 복원했어요."; }
-      } finally { serverTesting = false; render(); }
-      return;
-    }
     case "select": {
       if (picker === null) return;
       const source = (state.available ?? state.audible).find(item => item.id === i);
-      if (!source || state.slots[1-picker].tabId === source.id || selections[1-picker]?.id === source.id) return;
+      if (!source || sourceUsedElsewhere(source.id, picker)) return;
       const next = [...selections];
       next[picker] = source;
       await transport.saveSelections(next);
@@ -268,23 +268,66 @@ async function dispatch(action) {
       return act("pan", { index: i, value: Number(extra) });
     case "goto":
       return act("goto", { tabId: i });
-    case "draft": {
-      const request = document.getElementById("request").value.trim();
-      if (!request) return;
-      busy = true;
-      render();
-      const reply = await act("create-profile", { request });
-      busy = false;
-      draft = reply?.ok ? reply.result : null;
+    case "settings-tab": settingsTab = arg; presetPage = "list"; return render();
+    case "preset-back":
+      generation++; busy = false; draft = null; confirmDelete = false; presetPage = "list"; return render();
+    case "preset-from-alert": {
+      const profile = alertEditor.profile;
+      draft = { id: `custom-${crypto.randomUUID()}`, name: profile.name, condition: profile.rules.filter(rule => rule.enabled).map(rule => rule.text).join("\n"), summaryFocus: profile.summaryFocus || "", keywords: [], aliases: {} };
+      alertEditor = null; tab = "entrust"; settingsTab = "presets"; presetPage = "create";
       return render();
     }
-    case "save-draft":
-      await act("save-profile", { profile: draft });
-      draft = null;
+    case "preset-new":
+      presetPage = "create"; draft = null; presetRequest = ""; return render();
+    case "preset-manual":
+      draft = { id: `custom-${crypto.randomUUID()}`, name: "", condition: "", keywords: [], summaryFocus: "", aliases: {} }; return render();
+    case "preset-view": selectedPreset = state.profiles[i]?.id; presetPage = "detail"; confirmDelete = false; return render();
+    case "preset-edit": {
+      const profile = state.profiles.find(item => item.id === selectedPreset);
+      if (!profile) return;
+      draft = structuredClone(profile);
+      if (!profile.id.startsWith("custom-")) { draft.id = `custom-${crypto.randomUUID()}`; draft.name += " 복사본"; }
+      presetPage = "create"; return render();
+    }
+    case "preset-apply": {
+      const reply = await act("set-profile", { index: i, profileId: selectedPreset });
+      if (reply?.ok) { notice = "프리셋을 적용했어요."; render(); }
+      return;
+    }
+    case "preset-delete": confirmDelete = true; return render();
+    case "preset-delete-cancel": confirmDelete = false; return render();
+    case "preset-delete-confirm": {
+      const reply = await act("delete-profile", { id: selectedPreset });
+      if (reply?.ok) { presetPage = "list"; confirmDelete = false; notice = "프리셋을 삭제했어요."; render(); }
+      return;
+    }
+    case "draft": {
+      if (busy) return;
+      const request = presetRequest.trim();
+      if (!request) { notice = "알림을 받고 싶은 상황을 적어주세요."; return render(); }
+      busy = true;
+      const attempt = ++generation;
+      render();
+      let reply;
+      try { reply = await send("create-profile", { request }); }
+      catch (error) { reply = { ok: false, error: error.message }; }
+      if (attempt !== generation) return;
+      busy = false;
+      if (reply?.ok) draft = reply.result;
+      else notice = reply?.error || "초안을 만들지 못했어요. 다시 시도하거나 직접 작성해 주세요.";
       return render();
-    case "drop-draft":
-      draft = null;
+    }
+    case "save-draft": {
+      if (busy || !draft) return;
+      if (!draft.name.trim() || !draft.condition.trim()) { notice = "프리셋 이름과 알림 조건을 입력해 주세요."; return render(); }
+      busy = true;
+      const profile = structuredClone(draft);
+      render();
+      const reply = await act("save-profile", { profile });
+      busy = false;
+      if (reply?.ok) { selectedPreset = profile.id; draft = null; presetPage = "detail"; notice = "프리셋을 저장했어요."; }
       return render();
+    }
     default:
       return act(name);
   }
@@ -299,10 +342,8 @@ root.addEventListener("click", (event) => {
 });
 root.addEventListener("input", (event) => {
   const { dataset, value } = event.target;
-  if (dataset.serverField) {
-    serverDraft ??= { serverUrl: state.settings.serverUrl, token: state.settings.token };
-    serverDraft[dataset.serverField] = value;
-  }
+  if (dataset.presetRequest !== undefined) presetRequest = value;
+  if (draft && dataset.presetField) draft[dataset.presetField] = dataset.presetField === "keywords" ? value.split(",").map(word => word.trim()).filter(Boolean) : value;
   if (alertEditor && dataset.alertRequest !== undefined) { alertEditor.request = value; alertEditor.dirty = true; }
   if (alertEditor && (dataset.alertField || dataset.alertRule !== undefined || dataset.alertEnabled !== undefined)) {
     alertEditor.dirty = true;
@@ -329,6 +370,7 @@ root.addEventListener("change", (event) => {
 });
 transport.subscribe((nextState) => {
   state = nextState;
+  selections = Array.from({ length: state.slots.length }, (_, i) => selections[i] ?? null);
   const availableIds = new Set(state.available?.map(source => source.id));
   let removedSelection = false;
   selections = selections.map(source => {

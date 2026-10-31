@@ -1,10 +1,11 @@
+import { savePreset, deletePreset } from "./lib/presets.js";
 import { reopenPopupAfterConnect } from "./lib/popup-recovery.js";
 import { createApi } from "./lib/api.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-profiles.js";
 import { scanConnectedTab } from "./lib/page-context.js";
 import { normalizeConnection, applyBundledConnection } from "./lib/connection.js";
 import { SERVER_CONFIG } from "./server-config.js";
-import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf } from "./lib/logic.js";
+import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf, nextConnectedSlot } from "./lib/logic.js";
 
 const STANDBY_DELAY_MS = 2000;
 const NOTIFICATION_PREFIX = "moment:";
@@ -199,7 +200,7 @@ async function refreshView() {
 async function connectTab(tab, index) {
   if (slotIndex(tab.id) !== -1) throw new Error("이미 연결된 탭입니다.");
   const free = index ?? state.slots.findIndex((slot) => slot.tabId === null);
-  if (![0, 1].includes(free) || state.slots[free].tabId !== null) throw new Error("슬롯이 모두 찼습니다. 하나를 해제해 주세요.");
+  if (!Number.isInteger(free) || !state.slots[free] || state.slots[free].tabId !== null) throw new Error("슬롯이 모두 찼습니다. 하나를 해제해 주세요.");
   await ensureOffscreen();
   const streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
   await toEngine("capture", { streamId, tabId: tab.id, screen: state.settings.screen });
@@ -260,7 +261,7 @@ async function restore() {
   state.manual = previous.manual;
   state.slots.forEach((slot, i) => {
     const old = previous.slots[i];
-    if (old.tabId === slot.tabId) Object.assign(slot, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
+    if (old && old.tabId === slot.tabId) Object.assign(slot, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
   });
   if (previous.returnTab) {
     try {
@@ -272,8 +273,7 @@ async function restore() {
 
 function connectedFocusTarget() {
   const current = state.manual ?? state.slots.findIndex((slot) => slot.role === "main");
-  const next = current === 0 ? 1 : 0;
-  return state.slots[next].tabId !== null ? next : current;
+  return nextConnectedSlot(state.slots, current);
 }
 
 async function clearAlerts(id = null) {
@@ -361,6 +361,10 @@ async function createProfile(request) {
 }
 
 const commands = {
+  "add-slot": () => {
+    state.slots.push(emptySlot(state.settings));
+    return state.slots.length - 1;
+  },
   state: async () => {
     await refreshView();
     await commit();
@@ -432,6 +436,8 @@ const commands = {
   },
   "set-profile": ({ index, profileId }) => {
     const slot = state.slots[index];
+    if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
+    if (profileId && profileId !== "auto" && !profiles().some(item => item.id === profileId)) throw new Error("프리셋을 찾을 수 없습니다.");
     if (profileId !== "auto" && slot.alertSetup?.status === "generating") {
       slot.alertSetup = { ...slot.alertSetup, status: slot.alertSetup.profile ? "ready" : "error", error: "자동 생성을 중단했습니다. 다시 제안받을 수 있어요." };
     }
@@ -442,7 +448,10 @@ const commands = {
   },
   "create-profile": ({ request }) => createProfile(request),
   "save-profile": ({ profile }) => {
-    state.customProfiles = [...state.customProfiles, profile];
+    state.customProfiles = savePreset(state.customProfiles, profile);
+  },
+  "delete-profile": ({ id }) => {
+    state.customProfiles = deletePreset(state.customProfiles, state.slots, id);
   },
   "generate-alerts": ({ index, tabId, request }) => {
     if (state.slots[index]?.tabId !== tabId) throw new Error("연결된 탭이 바뀌었습니다.");

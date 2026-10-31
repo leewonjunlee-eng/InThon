@@ -158,6 +158,17 @@ test('frontend selection connects only its active tab and preserves audio contro
     await send('disconnect', { index: 0 });
     assert.equal(latest.slots[0].tabId, null);
     assert(engineCommands.some(item => item.cmd === 'remove' && item.tabId === 11));
+    const preset = { id: 'custom-integration', name: '경기 알림', condition: '한타 시작', keywords: ['한타'] };
+    assert.equal((await send('save-profile', { profile: preset })).ok, true);
+    assert.equal((await send('set-profile', { index: 1, profileId: preset.id })).ok, true);
+    assert.equal(latest.slots[1].profileId, preset.id);
+    assert.equal((await send('save-profile', { profile: { ...preset, name: '수정한 경기' } })).ok, true);
+    assert.equal(latest.profiles.filter(item => item.id === preset.id).length, 1);
+    assert.equal(latest.profiles.find(item => item.id === preset.id).name, '수정한 경기');
+    assert.equal((await send('delete-profile', { id: 'lol' })).ok, false);
+    assert.equal((await send('delete-profile', { id: preset.id })).ok, true);
+    assert.equal(latest.slots[1].profileId, null);
+    assert.equal(latest.slots[1].tabId, 12);
     sessionData.uiSelections = [{ id: 11, title: '롤 LCK' }, { id: 12, title: '운영체제 강의' }];
     await send('focus', { index: 1 });
     tabs.splice(tabs.findIndex(tab => tab.id === 12), 1);
@@ -173,5 +184,35 @@ test('frontend selection connects only its active tab and preserves audio contro
     await tabRemoved(11);
     assert.deepEqual(sessionData.uiSelections, [null, null], 'closing a selected but disconnected tab also clears it');
     assert.deepEqual(latest.available, [], 'popup is notified when an unconnected tab closes');
+    assert.equal((await send('add-slot')).result, 2);
+    assert.equal(latest.slots.length, 3);
+    tabs.push(...[21, 22, 23].map(id => ({ id, windowId: 1, title: '롤 LCK', url: 'https://example.com/lol', audible: true })));
+    for (let index = 0; index < 3; index++) {
+      activeId = 21 + index;
+      assert.equal((await send('connect', { index, tabId: activeId })).ok, true);
+    }
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(latest.slots[2].tabId, 23);
+    assert.equal(sessionData.session.slots.length, 3, 'added slots survive closing and reopening the popup');
+    await send('focus', { index: 0 });
+    await send('switch');
+    assert.equal(latest.manual, 1);
+    await send('switch');
+    assert.equal(latest.manual, 2);
+    await send('switch');
+    assert.equal(latest.manual, 0);
+    await send('add-slot');
+    assert.equal((await send('restore')).ok, true, 'restore tolerates slots added after its snapshot');
+    activeId = 23;
+    assert.equal((await send('connect', { index: 3, tabId: 23 })).ok, false, 'duplicate tabs are rejected across all slots');
+    tabs.splice(tabs.findIndex(tab => tab.id === 23), 1);
+    activeId = 21;
+    await tabRemoved(23);
+    assert.equal(latest.slots[2].tabId, null);
+    assert.equal(latest.slots[0].tabId, 21);
+    assert.equal(latest.slots[1].tabId, 22);
+    await send('disconnect', { index: 0 });
+    await send('disconnect', { index: 1 });
+
   } finally { delete globalThis.chrome; globalThis.fetch = originalFetch; }
 });
