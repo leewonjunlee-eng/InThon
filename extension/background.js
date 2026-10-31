@@ -52,7 +52,7 @@ function queueAlert(action) {
 }
 
 function focusCandidate() {
-  if (!state?.settings.auto || state.settings.dnd || !state.view.focused || state.peek !== null) return null;
+  if (!state?.settings.auto || !state.view.focused || state.peek !== null) return null;
   const slot = state.slots.find(slot => slot.tabId === state.view.tabId && slot.role === "standby");
   return slot ? { tabId: slot.tabId, title: slot.title } : null;
 }
