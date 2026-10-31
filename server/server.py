@@ -40,13 +40,15 @@ AI_READY = all(SETTINGS[name] for name in ("OPENAI_BASE_URL", "OPENAI_API_KEY", 
 hits = defaultdict(deque)
 
 
-def ask(system, user, max_tokens=MAX_TOKENS, timeout=30):
+def ask(system, user, max_tokens=MAX_TOKENS, timeout=30, thinking=True):
     payload = {
         "model": SETTINGS["OPENAI_MODEL"],
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "max_tokens": max_tokens,
         "stream": False,
     }
+    if not thinking:
+        payload["chat_template_kwargs"] = {"enable_thinking": False}  # reasoning_effort는 이 모델에서 듣지 않는다.
     request = Request(
         SETTINGS["OPENAI_BASE_URL"].rstrip("/") + "/chat/completions",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -60,11 +62,11 @@ def ask(system, user, max_tokens=MAX_TOKENS, timeout=30):
     return content
 
 
-def ask_json(system, user, max_tokens=MAX_TOKENS, timeout=30):
+def ask_json(system, user, max_tokens=MAX_TOKENS, timeout=30, thinking=True):
     prompt = system + " 모든 값은 한국어로 쓰고, 다른 설명 없이 JSON만 출력한다."
     for attempt in (1, 2):  # 모델이 가끔 깨진 JSON을 내서 한 번 더 시도한다.
         try:
-            match = re.search(r"[\[{].*[\]}]", ask(prompt, user, max_tokens, timeout), re.S)
+            match = re.search(r"[\[{].*[\]}]", ask(prompt, user, max_tokens, timeout, thinking), re.S)
             if match:
                 return json.loads(match.group())
         except ValueError:
@@ -166,7 +168,8 @@ def suggest_profile(body):
         '최상위는 배열이 아닌 JSON 객체 하나다. 형식: {"name":"짧은 주제","summaryFocus":"요약 초점","watchPhrases":["조짐 표현"],"rules":[{"text":"알릴 상황","enabled":true}]}',
         json.dumps(context, ensure_ascii=False),
         max_tokens=5000,
-        timeout=50,  # 조건 생성은 추론이 길다. Vercel 제한 60초 안쪽으로 둔다.
+        timeout=50,  # Vercel 제한 60초 안쪽으로 둔다.
+        thinking=False,  # 추론이 시간의 85%를 쓰지만 끄면 9초가 1초로 줄고 포착률은 같았다(17/18).
     )
     if not isinstance(result, dict):
         raise ValueError("profile must be an object")

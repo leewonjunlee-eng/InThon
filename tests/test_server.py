@@ -14,6 +14,7 @@ class SuggestProfileTests(unittest.TestCase):
                                              "description": "설명" * 2000, "pageText": "본문" * 3000, "captions": "현재 자막"})
         self.assertEqual(result["rules"], [{"text": "가격이 공개되면", "enabled": True}])
         self.assertEqual(model.call_args.kwargs["max_tokens"], 5000)
+        self.assertIs(model.call_args.kwargs["thinking"], False)
         import json
         context = json.loads(model.call_args.args[1])
         self.assertEqual(len(context["title"]), 300)
@@ -21,6 +22,20 @@ class SuggestProfileTests(unittest.TestCase):
         self.assertEqual(len(context["description"]), 1500)
         self.assertEqual(len(context["pageText"]), 3500)
         self.assertEqual(context["captions"], "현재 자막")
+
+    def test_only_the_generation_call_turns_reasoning_off(self):
+        import io, json
+        sent = []
+
+        def fake_urlopen(request, timeout):
+            sent.append(json.loads(request.data))
+            return io.BytesIO(json.dumps({"choices": [{"message": {"content": '{"rules":[{"text":"가격 공개"}]}'}}]}).encode())
+        settings = {**server.SETTINGS, "OPENAI_BASE_URL": "http://model", "OPENAI_API_KEY": "test", "OPENAI_MODEL": "test"}
+        with patch.object(server, "urlopen", fake_urlopen), patch.object(server, "SETTINGS", settings):
+            server.suggest_profile({"title": "판매 방송"})
+            server.judge({"text": "가격 공개", "condition": "가격 공개"})
+        self.assertEqual(sent[0]["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertNotIn("chat_template_kwargs", sent[1])
 
     def test_invalid_model_output_is_rejected(self):
         for answer in ([], {"rules": []}, {"rules": "invalid"}):
