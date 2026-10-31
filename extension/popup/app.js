@@ -351,7 +351,7 @@ async function dispatch(action) {
       render();
       const reply = await act("save-profile", { profile });
       busy = false;
-      if (reply?.ok) { selectedPreset = null; draft = null; presetPage = "list"; notice = "프리셋을 저장했어요."; }
+      if (reply?.ok) { selectedPreset = null; draft = null; presetPage = "list"; notice = ""; }
       return render();
     }
     default:
