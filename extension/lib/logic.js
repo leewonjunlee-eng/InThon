@@ -1,4 +1,5 @@
 // 크롬 API에 의존하지 않는 순수 로직. tests/logic.test.js에서 그대로 시험한다.
+import { SERVER_CONFIG } from "../server-config.js";
 export const DEFAULT_SETTINGS = {
   focusVol: 80,
   bgVol: 15,
@@ -8,8 +9,8 @@ export const DEFAULT_SETTINGS = {
   duck: false,
   screen: false,
   sensitivity: "normal",
-  serverUrl: "http://127.0.0.1:8787",
-  token: "",
+  serverUrl: SERVER_CONFIG.serverUrl,
+  token: SERVER_CONFIG.token,
 };
 
 export const SURGE_DB = { low: 12, normal: 9, high: 6 };

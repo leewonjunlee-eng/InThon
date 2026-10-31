@@ -11,6 +11,8 @@ let notice = "";
 let draft = null;
 let busy = false;
 let alertEditor = null;
+let serverDraft = null;
+let serverTesting = false;
 const connecting = new Set();
 
 const escapeHTML = (value) =>
@@ -144,6 +146,8 @@ function renderEntrust() {
   }
   html += renderProfiles();
   const { settings } = state;
+  const connection = serverDraft ?? settings;
+  html += `<details class="profile-detail"><summary>AI 서버 연결</summary><div class="stack"><p class="sub">다른 PC에서도 레블업 AI를 사용하려면 공용 중계 서버에 연결하세요. 레블업 API 키는 서버에만 보관됩니다.</p><label class="stack">서버 주소<input type="url" data-server-field="serverUrl" value="${escapeHTML(connection.serverUrl)}" placeholder="https://your-server.vercel.app"></label><label class="stack">서버 접속 토큰<input type="password" data-server-field="token" value="${escapeHTML(connection.token)}" autocomplete="off"></label><p class="sub">접속 토큰은 중계 서버용입니다. 레블업 API 키를 입력하지 마세요.</p>${button(serverTesting ? "연결 확인 중…" : "저장하고 연결 확인", "save-server", "full", serverTesting)}</div></details>`;
   html += `<h3>설정</h3><div class="stack">${toggle("auto", "보는 화면에 따라 자동 전환")}${toggle("bgMute", "대기 중에는 음소거")}${toggle("dnd", "방해 금지 (알림 없이 모아 두기)")}${toggle("duck", "메인 소리가 날 때 대기 소리 더 낮추기")}${toggle("screen", "화면 변화도 감지 (이미지가 서버로 전송됨)")}</div>`;
   html += `<label class="stack"><span>감지 민감도</span><select data-setting-select="sensitivity">${[["low", "낮음 (큰 순간만)"], ["normal", "보통"], ["high", "높음"]].map(([value, text]) => `<option value="${value}" ${settings.sensitivity === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
   html += `<label class="stack"><span>메인 음량 <output id="setting-focusVol">${settings.focusVol}%</output></span><input type="range" min="0" max="100" value="${settings.focusVol}" data-setting-range="focusVol" aria-label="메인 음량"></label>`;
@@ -211,6 +215,18 @@ async function dispatch(action) {
       if (reply?.ok) { alertEditor = null; notice = "요청을 반영해 알림 조건을 만들고 있어요."; render(); }
       return;
     }
+    case "save-server": {
+      if (serverTesting) return;
+      serverTesting = true;
+      render();
+      try {
+        const saved = await act("settings", { patch: serverDraft ?? { serverUrl: state.settings.serverUrl, token: state.settings.token } });
+        if (!saved?.ok) return;
+        const checked = await act("test-server");
+        if (checked?.ok) { serverDraft = null; notice = "레블업 AI 서버 연결을 확인했어요."; }
+      } finally { serverTesting = false; render(); }
+      return;
+    }
     case "select": {
       if (picker === null) return;
       const source = (state.available ?? state.audible).find(item => item.id === i);
@@ -273,6 +289,10 @@ root.addEventListener("click", (event) => {
 });
 root.addEventListener("input", (event) => {
   const { dataset, value } = event.target;
+  if (dataset.serverField) {
+    serverDraft ??= { serverUrl: state.settings.serverUrl, token: state.settings.token };
+    serverDraft[dataset.serverField] = value;
+  }
   if (alertEditor && dataset.alertRequest !== undefined) { alertEditor.request = value; alertEditor.dirty = true; }
   if (alertEditor && (dataset.alertField || dataset.alertRule !== undefined || dataset.alertEnabled !== undefined)) {
     alertEditor.dirty = true;

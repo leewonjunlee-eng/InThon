@@ -1,5 +1,6 @@
 import { AudioEngine } from "../extension/engine.js";
 import { createApi } from "../extension/lib/api.js";
+import { normalizeConnection } from "../extension/lib/connection.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "../extension/lib/auto-profiles.js";
 import { DEFAULT_SETTINGS, PROFILES, emptySlot, computeRoles, gainFor } from "../extension/lib/logic.js";
 
@@ -141,12 +142,14 @@ export function createPreviewTransport() {
         case "keep": state.manual = state.peek; state.peek = null; state.snapshot = null; break;
         case "auto": state.manual = null; state.peek = null; state.snapshot = null; break;
         case "settings":
+          if ("serverUrl" in payload.patch || "token" in payload.patch) payload.patch = { ...payload.patch, ...normalizeConnection({ ...state.settings, ...payload.patch }) };
           Object.assign(state.settings, payload.patch);
           if ("focusVol" in payload.patch || "bgVol" in payload.patch) state.slots.forEach(item => {
             item.volumes = { main: state.settings.focusVol, standby: state.settings.bgVol };
           });
           if (payload.patch.screen) state.status = "웹 체험에는 화면 캡처가 없습니다. Chrome 확장에서 사용하세요.";
           break;
+        case "test-server": return { ok: true, result: await api.checkConnection() };
         case "set-profile":
           if (payload.profileId !== "auto" && slot.alertSetup?.status === "generating") slot.alertSetup = { ...slot.alertSetup, status: slot.alertSetup.profile ? "ready" : "error", error: "자동 생성을 중단했습니다." };
           slot.profileId = payload.profileId || null;

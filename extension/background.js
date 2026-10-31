@@ -1,6 +1,7 @@
 import { createApi } from "./lib/api.js";
 import { alertProfileFor, contextProfile, createAutoProfiles } from "./lib/auto-profiles.js";
 import { scanConnectedTab } from "./lib/page-context.js";
+import { normalizeConnection } from "./lib/connection.js";
 import { DEFAULT_SETTINGS, PROFILES, classify, computeRoles, emptySlot, gainFor, hostOf } from "./lib/logic.js";
 
 const STANDBY_DELAY_MS = 2000;
@@ -424,6 +425,7 @@ const commands = {
     autoProfiles.save(index, profile);
   },
   settings: ({ patch }) => {
+    if ("serverUrl" in patch || "token" in patch) patch = { ...patch, ...normalizeConnection({ ...state.settings, ...patch }) };
     Object.assign(state.settings, patch);
     if ("focusVol" in patch || "bgVol" in patch) {
       state.slots.forEach((slot) => {
@@ -431,6 +433,7 @@ const commands = {
       });
     }
   },
+  "test-server": () => api.checkConnection(),
 };
 
 async function run(cmd, payload) {

@@ -4,6 +4,8 @@
 
 기능별 구현 범위와 확인 수준은 [read.md](read.md)에 정리했습니다.
 
+다른 PC에서 로컬 서버 없이 레블업 AI를 쓰는 방법과 공용 서버는 [SHARED_AI.md](SHARED_AI.md)를 참고하세요.
+
 ## 실행
 
 1. 프로젝트 루트 `.env`에 `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`을 설정합니다.

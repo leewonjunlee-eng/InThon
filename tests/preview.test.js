@@ -21,7 +21,7 @@ test('preview preserves AI requests, focus/switch/restore, audio controls and di
   globalThis.location = { origin: 'http://preview.test' };
   const requests = [];
   globalThis.fetch = async (url, options) => {
-    if (url.endsWith('/health')) return { ok: true, json: async () => ({ capabilities: ['prompt-alerts'] }) };
+    if (url.endsWith('/health')) return { ok: true, json: async () => ({ ok: true, capabilities: ['prompt-alerts'] }) };
     requests.push(JSON.parse(options.body));
     return { ok: true, json: async () => ({ name: '맞춤 조건', rules: [{ text: '한화 경기 중 한타가 발생하면', enabled: true }] }) };
   };

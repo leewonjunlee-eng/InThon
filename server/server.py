@@ -177,7 +177,8 @@ def suggest_profile(body):
             "summaryFocus": str(result.get("summaryFocus", ""))[:300], "rules": clean_rules}
 
 
-ROUTES = {"/judge": judge, "/summarize": summarize, "/vision": vision, "/classify": classify, "/profile": profile, "/suggest-profile": suggest_profile}
+ROUTES = {"/judge": judge, "/summarize": summarize, "/vision": vision, "/classify": classify, "/profile": profile, "/suggest-profile": suggest_profile,
+          "/check": lambda body: {"ok": True, "aiReady": AI_READY}}
 
 
 def rate_limited(client):
@@ -210,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = self.path.split("?")[0]
         if path == "/health":
-            return self.reply(200, {"ok": True, "aiReady": AI_READY, "capabilities": ["suggest-profile", "prompt-alerts"]})
+            return self.reply(200, {"ok": True, "aiReady": AI_READY, "authRequired": bool(SETTINGS["AUDIO_FOCUS_TOKEN"]), "capabilities": ["suggest-profile", "prompt-alerts", "connection-check"]})
         target = (ROOT / unquote(path).lstrip("/")).resolve()
         if path == "/":
             target = ROOT / "demo" / "index.html"

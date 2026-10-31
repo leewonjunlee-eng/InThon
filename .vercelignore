@@ -1,0 +1,16 @@
+tmp/
+tests/
+demo/
+extension/
+spike/
+scripts/
+dist/
+node_modules/
+.git/
+.vercel/
+.agents/
+.codex/
+.env*
+*.md
+*.pdf
+**/__pycache__/**

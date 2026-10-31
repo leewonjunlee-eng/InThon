@@ -146,7 +146,7 @@ test("a server must support prompts so user requests cannot be silently ignored"
   let supportsPrompts = false;
   globalThis.fetch = async (url, options) => {
     urls.push(url);
-    if (url.endsWith("/health")) return { ok: true, json: async () => ({ capabilities: supportsPrompts ? ["prompt-alerts"] : ["suggest-profile"] }) };
+    if (url.endsWith("/health")) return { ok: true, json: async () => ({ ok: true, capabilities: supportsPrompts ? ["prompt-alerts"] : ["suggest-profile"] }) };
     assert.equal(JSON.parse(options.body).request, "한화 한타");
     return { ok: true, json: async () => profile() };
   };

@@ -48,6 +48,16 @@ test("the real popup editor keeps unsaved edits during updates and submits enabl
     const generate = sent.find(message => message.cmd === "generate-alerts");
     assert.equal(generate.tabId, 11);
     assert.equal(generate.request, request);
+    await click('tab:entrust');
+    assert(main.innerHTML.includes('AI 서버 연결'));
+    handlers.get('input')({ target: { dataset: { serverField: 'serverUrl' }, value: 'https://shared.example' } });
+    handlers.get('input')({ target: { dataset: { serverField: 'token' }, value: 'relay-access' } });
+    await click('save-server');
+    const settings = sent.find(message => message.cmd === 'settings' && message.patch.serverUrl);
+    assert.equal(settings.patch.serverUrl, 'https://shared.example');
+    assert.equal(settings.patch.token, 'relay-access');
+    assert(sent.some(message => message.cmd === 'test-server'));
+    assert(main.innerHTML.includes('레블업 AI 서버 연결을 확인했어요'));
   } finally {
     globalThis.document = documentBefore;
     globalThis.chrome = chromeBefore;

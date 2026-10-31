@@ -16,7 +16,7 @@ test('frontend selection connects only its active tab and preserves audio contro
   const storage = () => ({ get: async () => ({}), set: async () => {} });
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) => {
-    if (String(url).endsWith('/health')) return { ok: true, json: async () => ({ capabilities: ['prompt-alerts'] }) };
+    if (String(url).endsWith('/health')) return { ok: true, json: async () => ({ ok: true, capabilities: ['prompt-alerts'] }) };
     assert(String(url).endsWith("/suggest-profile"));
     aiRequests.push(JSON.parse(options.body));
     return { ok: true, json: async () => ({ name: "탭 맞춤 알림", summaryFocus: "중요한 안내", rules: [{ text: "중요한 일정이 확정되었을 때", enabled: true }] }) };

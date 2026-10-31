@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{tmp/**,tests/**,demo/**,extension/**,spike/**,scripts/**,.env,.env.*,**/__pycache__/**,*.pdf}"
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.py" }]
+}
