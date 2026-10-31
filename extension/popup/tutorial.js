@@ -1,8 +1,9 @@
 // Onboarding uses sample tabs and controls without changing real browser audio.
 const KEY = 'catchsound-tutorial-v2';
 const force = new URLSearchParams(location.search).get('tutorial') === '1';
-// Temporarily show onboarding on every popup open, even after completion.
-startTutorial();
+let seen = false;
+try { seen = localStorage.getItem(KEY) === 'done'; } catch {}
+if (!seen || force) startTutorial();
 function startTutorial() {
   document.documentElement.classList.add('tutorial-active');
   let welcome=true, added=false, secondSelected=null, pickerTarget=0;
