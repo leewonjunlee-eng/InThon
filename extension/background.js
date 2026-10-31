@@ -60,7 +60,7 @@ const focusSuggestion = createFocusSuggestion({
   read: focusCandidate,
   clear: tabId => chrome.tabs.sendMessage(tabId, { to: "content", cmd: "focus-suggestion-clear" }).catch(() => {}),
   show: async candidate => {
-    await refreshView();
+    await refreshView({ classifyTopic: false });
     if (focusCandidate()?.tabId !== candidate.tabId) return;
     const message = { to: "content", cmd: "focus-suggestion", tabId: candidate.tabId, title: candidate.title };
     try {
@@ -265,16 +265,25 @@ async function applyRoles({ immediate = false } = {}) {
   focusSuggestion.update();
 }
 
-async function refreshView() {
+let viewRevision = 0;
+async function refreshView({ classifyTopic = true } = {}) {
+  const revision = ++viewRevision;
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const window = await chrome.windows.getLastFocused().catch(() => null);
+  if (revision !== viewRevision) return;
   state.view = {
     tabId: tab?.id ?? null,
     title: tab?.title ?? "",
     host: hostOf(tab?.url),
-    topic: tab ? await topicFor(tab) : null,
+    topic: tab ? classify(tab, state.rules, profiles()) : null,
     focused: Boolean(window?.focused),
   };
+  // Start/cancel the dwell timer from local browser state, without waiting for AI or audio.
+  focusSuggestion.update();
+  if (classifyTopic && tab) {
+    const topic = await topicFor(tab);
+    if (revision === viewRevision) state.view.topic = topic;
+  }
 }
 
 async function connectTab(tab, index) {
