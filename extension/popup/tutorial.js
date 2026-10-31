@@ -9,6 +9,7 @@ if (!seen || force) startTutorial();
 function startTutorial(manual=false) {
   if (document.querySelector('#ab-mock .onboarding')) return;
   document.documentElement.classList.add('tutorial-active');
+  let firstVisible=true;
   let welcome=true, added=false, secondSelected=null, pickerTarget=0;
   let switched=false;
   const practiceVolumes=[80,20];
@@ -52,8 +53,8 @@ function startTutorial(manual=false) {
     let content='';
     if(step===0 && picker) content=`${button('← 슬롯으로 돌아가기','picker-back','quiet')}<h3>연결할 탭 선택</h3><p class="sub">탭을 누르면 바로 슬롯에 선택됩니다.</p><div class="picker">${samples.map((s,i)=>button(`<span>${s.title}<span class="sub">${s.host}</span></span>`,`select:${i}`,'choice')).join('')}</div>`;
     else if(step===0) {
-      const emptyCard = target => `<article class="slot empty tour-add-card"><h3 class="tab-status vacant">비어 있음</h3>${button('＋ 연결할 탭 고르기',`pick:${target}`,'full')}</article>`;
-      content = connected ? `<article class="slot focus-card">${status()}${source()}</article>${!added ? button('다른 탭 직접 선택하기','pick:0','quiet full') : ''}` : emptyCard(0);
+      const emptyCard = target => `<article class="slot empty tour-add-card tour-empty-card"><div class="slot-heading"><h3 class="tab-status vacant"><span class="status-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></span>비어 있음</h3><button type="button" class="quiet remove-slot" data-tour="${target===1?'remove-added':'remove-first'}" aria-label="비어 있는 탭 삭제" title="탭 삭제"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div><p class="sub">이 자리에 들을 소리를 넣어주세요.</p>${button('＋ 연결할 탭 고르기',`pick:${target}`,'full')}</article>`;
+      content = connected ? `<article class="slot focus-card">${status()}${source()}</article>${!added ? button('다른 탭 직접 선택하기','pick:0','quiet full') : ''}` : firstVisible ? emptyCard(0) : '';
       if(added) content += secondSelected === null ? emptyCard(1) : `<article class="slot tour-add-card tour-standby-card"><div class="slot-heading"><h3 class="tab-status standby"><span class="status-icon" aria-hidden="true"><img src="${iconBase}pause.svg" width="18" height="18" alt=""></span>대기 탭</h3><button type="button" class="quiet remove-slot" data-tour="remove-added" aria-label="대기 탭 삭제"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div><div class="source"><strong>${samples[secondSelected].title}</strong><span class="sub">${samples[secondSelected].host}</span></div></article>${button('다른 탭 직접 선택하기','pick:1','quiet full')}`;
       if(!added) content += button('＋ 탭 추가','add-tab','add-slot full tour-add-button');
     }
@@ -67,7 +68,7 @@ function startTutorial(manual=false) {
   function practiceCommand(command){
     if(welcome) return;
     if(step===0 && command==='connect-tab') {
-      connected=true;selected=0;picker=false;render(true);
+      firstVisible=true;connected=true;selected=0;picker=false;render(true);
     } else if(step===1 && ['switch-focus','restore'].includes(command)) {
       practiceVolumes[switched ? 1 : 0]=volume;
       switched=command==='switch-focus';
@@ -82,7 +83,7 @@ function startTutorial(manual=false) {
     event.preventDefault();event.stopImmediatePropagation();
     practiceCommand(command);
   }
-  dialog.addEventListener('click',event=>{const action=event.target.closest('[data-tour]')?.dataset.tour;if(!action)return;event.stopPropagation();if(action==='skip'||action==='next'&&step===3)return close();if(action==='start'){welcome=false;render(true);return;}if(action==='next'){step++;picker=false;}else if(action==='back'){step--;picker=false;}else if(action==='add-tab'){added=true;}else if(action==='remove-added'){added=false;secondSelected=null;}else if(action.startsWith('pick:')){pickerTarget=Number(action.split(':')[1]);picker=true;}else if(action==='picker-back')picker=false;else if(action.startsWith('select:')){const chosen=Number(action.split(':')[1]);if(pickerTarget===1)secondSelected=chosen;else{selected=chosen;connected=true;}picker=false;}else if(action==='focus-current'){practiceVolumes[1]=volume;switched=false;volume=practiceVolumes[0];}else if(action.startsWith('pan:'))pan=Number(action.split(':')[1]);else if(action==='conditions'){presetDraft={...presets[preset]};detail=true;}
+  dialog.addEventListener('click',event=>{const action=event.target.closest('[data-tour]')?.dataset.tour;if(!action)return;event.stopPropagation();if(action==='skip'||action==='next'&&step===3)return close();if(action==='start'){welcome=false;render(true);return;}if(action==='next'){step++;picker=false;}else if(action==='back'){step--;picker=false;}else if(action==='add-tab'){if(!firstVisible)firstVisible=true;else added=true;}else if(action==='remove-first'){if(added){connected=secondSelected!==null;if(connected)selected=secondSelected;added=false;secondSelected=null;}else{firstVisible=false;connected=false;}}else if(action==='remove-added'){added=false;secondSelected=null;}else if(action.startsWith('pick:')){pickerTarget=Number(action.split(':')[1]);picker=true;}else if(action==='picker-back')picker=false;else if(action.startsWith('select:')){const chosen=Number(action.split(':')[1]);if(pickerTarget===1)secondSelected=chosen;else{selected=chosen;connected=true;}picker=false;}else if(action==='focus-current'){practiceVolumes[1]=volume;switched=false;volume=practiceVolumes[0];}else if(action.startsWith('pan:'))pan=Number(action.split(':')[1]);else if(action==='conditions'){presetDraft={...presets[preset]};detail=true;}
     else if(action==='cancel-preset'){detail=false;presetDraft=null;}
     else if(action==='save-preset'){
       const form=dialog.querySelector('#tour-preset-editor');

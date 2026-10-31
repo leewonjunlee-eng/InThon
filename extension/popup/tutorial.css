@@ -103,3 +103,8 @@ html.tutorial-active #ab-mock .onboarding::backdrop{background:#f5f4fa;backdrop-
 
 #ab-mock .tutorial-launcher{display:inline-flex;align-items:center;gap:7px;padding:0;min-height:0;border:0;border-radius:4px;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;cursor:pointer}
 #ab-mock .tutorial-launcher:focus-visible{outline:2px solid var(--brand);outline-offset:4px}
+
+#ab-mock .tour-content .tour-empty-card{padding:12px;gap:10px}
+#ab-mock .tour-empty-card .sub{margin:0}
+#ab-mock .tour-content .tour-empty-card .remove-slot{display:grid;place-items:center;min-height:30px;padding:4px}
+#ab-mock .tour-content .tour-empty-card .tab-status{width:auto;min-width:90px}
