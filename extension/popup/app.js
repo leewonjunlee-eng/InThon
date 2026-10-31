@@ -93,7 +93,7 @@ function renderSlot(slot, i) {
 function renderSound() {
   let html = "";
 
-  html += `<div class="settings-top sound-top"><span aria-hidden="true"></span><h3>소리 구성</h3></div>`;
+  html += `<div class="settings-top sound-top"><span aria-hidden="true"></span><h3>사운드홈</h3></div>`;
   if (state.peek !== null) {
     html += `<div class="notice"><h3>${label(state.peek)}를 잠깐 확인 중</h3><div class="two">${button("확인 끝 · 복귀", "restore", "solid")}${button("계속 집중", "keep")}</div></div>`;
   }
@@ -163,13 +163,13 @@ function renderPresetCreate() {
 function renderEntrust() {
   if (presetPage === "detail" && settingsTab === "presets") return renderPresetDetail();
   if (presetPage === "create" && settingsTab === "presets") return renderPresetCreate();
-  return `<div class="settings-top">${button("←", "tab:sound", "quiet back-link", false, 'aria-label="소리 구성으로 돌아가기"')}<h3>세부설정</h3></div><nav class="settings-tabs" aria-label="세부설정 분류">${button("기본 설정", "settings-tab:general", "", false, `aria-pressed="${settingsTab === "general"}"`)}${button("프리셋", "settings-tab:presets", "", false, `aria-pressed="${settingsTab === "presets"}"`)}</nav><div class="settings-content">${settingsTab === "general" ? renderGeneral() : renderPresetList()}</div>`;
+  return `<div class="settings-top">${button("←", "tab:sound", "quiet back-link", false, 'aria-label="사운드홈으로 돌아가기"')}<h3>세부설정</h3></div><nav class="settings-tabs" aria-label="세부설정 분류">${button("기본 설정", "settings-tab:general", "", false, `aria-pressed="${settingsTab === "general"}"`)}${button("프리셋", "settings-tab:presets", "", false, `aria-pressed="${settingsTab === "presets"}"`)}</nav><div class="settings-content">${settingsTab === "general" ? renderGeneral() : renderPresetList()}</div>`;
 }
 
 function render() {
   if (!state) return;
   const toggle = document.getElementById("settings-toggle");
-  if (toggle) { toggle.textContent = "세부설정"; }
+  if (toggle) { toggle.textContent = tab === "entrust" ? "사운드홈" : "세부설정"; }
   const openProfiles = new Set([...main.querySelectorAll("details[open][data-profile-detail]")].map(item => item.dataset.profileDetail));
   let html = alertEditor ? renderAlertEditor() : picker !== null ? renderPicker() : tab === "entrust" ? renderEntrust() : renderSound();
   const message = notice || state.status;
