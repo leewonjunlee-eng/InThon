@@ -12,3 +12,9 @@ export function deletePreset(existing, slots, id) {
   for (const slot of slots) if (slot.profileId === id) slot.profileId = null;
   return existing.filter(item => item.id !== id);
 }
+
+// Normalize generated lists without adding a second number on repeated edits.
+export function numberConditions(value) {
+  return String(value ?? "").split(/\r?\n/).map(line => line.trim().replace(/^(?:\d+[.)]\s*|[-*•]\s+)/, "")).filter(Boolean)
+    .map((line, index) => `${index + 1}. ${line}`).join("\n");
+}

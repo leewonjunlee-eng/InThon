@@ -1,3 +1,4 @@
+import { numberConditions } from "./presets.js";
 // 판단 서버 호출. API 키는 서버에만 있고 확장에는 데모 토큰만 둔다.
 import { normalizeConnection } from "./connection.js";
 export function createApi(getConfig) {
@@ -50,7 +51,10 @@ export function createApi(getConfig) {
     summarize: (text, focus) => post("/summarize", { text, focus }),
     classify: (host, title, topics) => post("/classify", { host, title, topics }),
     vision: (image, condition) => post("/vision", { image, condition }),
-    profile: (request) => post("/profile", { request }),
+    profile: async (request) => {
+      const profile = await post("/profile", { request });
+      return { ...profile, condition: numberConditions(profile.condition) };
+    },
     suggestProfile: (context) => post("/suggest-profile", context),
   };
 }

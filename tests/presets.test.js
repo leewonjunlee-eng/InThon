@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { savePreset, deletePreset } from '../extension/lib/presets.js';
+import { savePreset, deletePreset, numberConditions } from '../extension/lib/presets.js';
 
 test('presets validate required fields, preserve built-ins and update without duplicates', () => {
   const builtIn = { id: 'lol', name: '롤' };
@@ -22,4 +22,11 @@ test('deleting a custom preset clears only its assignments and does not disconne
   assert.throws(() => deletePreset(profiles, slots, 'lol'));
   assert.deepEqual(deletePreset(profiles, slots, 'custom-one'), [{ id: 'lol' }]);
   assert.deepEqual(slots, [{ tabId: 11, profileId: null }, { tabId: 12, profileId: 'lol' }]);
+});
+
+test('generated conditions are numbered once, skipping empty lines', () => {
+  assert.equal(numberConditions('첫 조건\n\n두 번째 조건'), '1. 첫 조건\n2. 두 번째 조건');
+  assert.equal(numberConditions('1. 첫 조건\n2) 두 번째 조건'), '1. 첫 조건\n2. 두 번째 조건');
+  assert.equal(numberConditions('- 단일 조건'), '1. 단일 조건');
+  assert.equal(numberConditions(''), '');
 });
