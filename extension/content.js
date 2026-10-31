@@ -199,7 +199,7 @@ if (!globalThis.audioFocusLoaded) {
     for (const key of id ? [id] : [...openCards.keys()]) if (key !== "pip" && key !== "focus-suggestion") closeCard(key);
   }
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-    if (message.to !== "content") return false;
+    if (message.to !== "content" || message.cmd === "dnd-inbox") return false;
     if (message.cmd === "moment" && message.moment) showMoment(message);
     if (message.cmd === "moment-update" && message.moment) updateSummary(message.moment);
     if (message.cmd === "moment-clear") clearMoment(message.id);

@@ -12,6 +12,8 @@ test('frontend selection connects only its active tab and preserves audio contro
   let blockedTabId = null;
   let missingCardReceiver = false, cardReinjections = 0;
   const inboxMessages = [];
+  const inboxTabs = new Set([11, 12]);
+  const inboxInjections = [];
   const contentMessages = [], notifications = new Map();
   const engineCommands = [], scannedTabs = [], aiRequests = [], popupRequests = [];
   const monitorTabs = new Set();
@@ -47,12 +49,12 @@ test('frontend selection connects only its active tab and preserves audio contro
       query: async query => query.active ? tabs.filter(tab => tab.id === activeId && (query.windowId === undefined || tab.windowId === query.windowId)) : tabs,
       update: async id => { activeId = id; return tabs.find(tab => tab.id === id); },
       onActivated: { addListener(fn) { tabActivated = fn; } }, onUpdated: event, onRemoved: { addListener(fn) { tabRemoved = fn; } },
-      sendMessage: async (id, message) => { if (message.cmd === 'moment' && missingCardReceiver) return undefined; if (message.to === 'monitor') return { monitorReady: monitorTabs.has(id) }; if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return { ok: true }; },
+      sendMessage: async (id, message) => { if (message.cmd === 'moment' && missingCardReceiver) return undefined; if (message.to === 'monitor') return { monitorReady: monitorTabs.has(id) }; if (id === blockedTabId && message.cmd === "moment") throw new Error("restricted page"); (message.cmd === "dnd-inbox" ? inboxMessages : contentMessages).push({ id, ...message }); return message.cmd === "dnd-inbox" ? { ok: true, inboxReady: inboxTabs.has(id) } : { ok: true }; },
     },
     windows: { getLastFocused: async () => ({ id: focusedWindowId, focused: windowFocused }), update: async () => {}, onFocusChanged: event },
     offscreen: { hasDocument: async () => true },
     tabCapture: { getMediaStreamId: async ({ targetTabId }) => `stream-${targetTabId}` },
-    scripting: { executeScript: async ({ target, files }) => { if (target.tabId === blockedTabId) throw new Error("cannot inject"); if (files?.includes("status-bar.js")) { if (files.includes("content.js") && missingCardReceiver) { missingCardReceiver=false; cardReinjections++; } monitorTabs.add(target.tabId); return []; } scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
+    scripting: { executeScript: async ({ target, files }) => { if (files?.length === 1 && files[0] === "inbox.js") { inboxTabs.add(target.tabId); inboxInjections.push(target.tabId); return []; } if (target.tabId === blockedTabId) throw new Error("cannot inject"); if (files?.includes("status-bar.js")) { if (files.includes("content.js") && missingCardReceiver) { missingCardReceiver=false; cardReinjections++; } monitorTabs.add(target.tabId); return []; } scannedTabs.push(target.tabId); return [{ result: { description: "연결한 탭의 설명" } }]; } },
     commands: { onCommand: { addListener(fn) { shortcut = fn; } } },
     notifications: { onClosed: { addListener(fn) { notificationClosed = fn; } }, onButtonClicked: { addListener(fn) { notificationClick = fn; } },
       getAll: async () => Object.fromEntries(notifications),
@@ -228,6 +230,16 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(contentMessages.length, beforeDndMoment, 'DND stores events without showing cards');
     assert.equal(latest.moments[0].id, 'quiet-event');
     assert.equal(latest.dndInbox.length, 1);
+    tabs.push({ id: 99, windowId: 1, title: '다른 작업 탭', url: 'https://work.example/' });
+    activeId = 99;
+    await tabActivated();
+    assert(inboxInjections.includes(99), 'a generic acknowledgement cannot hide a missing inbox receiver');
+    const movedInbox = inboxMessages.filter(message => message.id === 99).at(-1).inbox;
+    assert.equal(movedInbox.enabled, true);
+    assert.equal(movedInbox.items[0].id, 'quiet-event', 'tab changes preserve the shared inbox');
+    activeId = 11;
+    await tabActivated();
+    tabs.pop();
     assert.equal(inboxMessages.at(-1).inbox.enabled, true);
     assert.equal(inboxMessages.at(-1).inbox.items[0].id, 'quiet-event');
     await emit({ type: 'moment-update', moment: { ...moment, id: 'quiet-event', summary: '보완된 요약' } });

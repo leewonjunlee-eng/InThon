@@ -161,7 +161,7 @@ if (!globalThis.catchSoundInboxLoaded) {
   }
   chrome.runtime.onMessage.addListener((message,_sender,respond)=>{
     if(message.to!=='content'||message.cmd!=='dnd-inbox')return false;
-    update(message.inbox);respond({ok:true});return false;
+    update(message.inbox);respond({ok:true,inboxReady:true});return false;
   });
   chrome.runtime.sendMessage({to:'bg',cmd:'get-dnd-inbox'}).then(reply=>{if(reply?.ok)update(reply.result);}).catch(()=>{});
 }

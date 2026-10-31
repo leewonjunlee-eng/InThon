@@ -152,14 +152,16 @@ async function syncInbox(force = false, inbox = inboxState()) {
   const tabs = await chrome.tabs.query({});
   await Promise.all(tabs.filter(tab => /^https?:/.test(tab.url || "")).map(async tab => {
     const message = { to: "content", cmd: "dnd-inbox", inbox };
-    try { await chrome.tabs.sendMessage(tab.id, message); }
-    catch {
-      if (!inbox.enabled || (!tab.active && tab.id !== state.view.tabId)) return;
-      try {
-        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inbox.js", "content.js", "status-bar.js"] });
-        await chrome.tabs.sendMessage(tab.id, message);
-      } catch { /* Chrome-protected pages cannot host the inbox. */ }
-    }
+    try {
+      const reply = await chrome.tabs.sendMessage(tab.id, message);
+      if (reply?.inboxReady || !inbox.enabled) return;
+    } catch { if (!inbox.enabled) return; }
+    // A different content script can acknowledge messages without mounting the bell.
+    if (!tab.active && tab.id !== state.view.tabId) return;
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["inbox.js"] });
+      await chrome.tabs.sendMessage(tab.id, message);
+    } catch { /* Chrome-protected pages cannot host the inbox. */ }
   }));
 }
 async function commit() {
@@ -720,9 +722,9 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
 async function onViewChanged() {
   await load();
   await refreshView();
+  await syncInbox(true);
   await applyRoles();
   await moveOpenAlerts();
-  await syncInbox(true);
   await syncMonitor(true);
 }
 
