@@ -325,36 +325,6 @@ body {
   background: var(--bg);
   color: var(--ink);
 }
-#ab-mock .map {
-  position: relative;
-  height: 96px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--soft);
-  touch-action: none;
-  cursor: crosshair;
-}
-#ab-mock .map .head {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0.6;
-}
-#ab-mock .map .dot {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  margin: -12px 0 0 -12px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #6254d8;
-  color: #fff;
-  font-size: 12px;
-  pointer-events: none;
-}
-
 /* The same frontend shell is used by the browser preview and Chrome popup. */
 html.extension-popup { width: 460px; height: 600px; }
 .extension-popup #ab-mock { min-height: 600px; padding: 12px; }
