@@ -96,10 +96,17 @@ if (!globalThis.audioFocusLoaded) {
       card.append(action("닫기", close));
     });
   }
+
+  function clearMoment(id) {
+    if (!currentMomentId || (id && currentMomentId !== id)) return;
+    document.getElementById("audio-focus-card")?.remove();
+    currentMomentId = null;
+  }
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message.to !== "content") return false;
     if (message.cmd === "moment" && message.moment) showMoment(message);
     if (message.cmd === "moment-update" && message.moment) updateSummary(message.moment);
+    if (message.cmd === "moment-clear") clearMoment(message.id);
     if (message.cmd === "pip") showPip();
     respond({ ok: true });
     return false;

@@ -292,6 +292,10 @@ export class AudioEngine {
     const lines = this.recent(channel);
     const text = linesToText(lines);
     const hasSpeech = lines.some((line) => !line.text.startsWith("("));
+    if (kind === "judge" && !hasSpeech) {
+      if (channel.lastMomentAt === now) channel.lastMomentAt = 0;
+      return;
+    }
     if (channel.profile.requireEvidence && !hasSpeech) { channel.lastMomentAt = 0; return; }
     let confident = kind === "keyword";
 

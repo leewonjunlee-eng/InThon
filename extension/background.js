@@ -27,6 +27,12 @@ const initialState = () => ({
 let state = null;
 let standbyTimer = null;
 let offscreenReady = null;
+let alertQueue = Promise.resolve();
+function queueAlert(action) {
+  const result = alertQueue.catch(() => {}).then(action);
+  alertQueue = result;
+  return result;
+}
 
 const api = createApi(async () => (await load()).settings);
 
@@ -187,8 +193,9 @@ async function disconnect(index) {
   await applyRoles({ immediate: true });
 }
 
-const snapshotOf = () => ({
+const snapshotOf = (returnTab = null) => ({
   manual: state.manual,
+  returnTab,
   slots: state.slots.map(({ tabId, pan, muted, pinned, volumes }) => ({ tabId, pan, muted, pinned, volumes: { ...volumes } })),
 });
 
@@ -196,7 +203,8 @@ async function focusSlot(index) {
   const slot = state.slots[index];
   if (!slot || slot.tabId === null) throw new Error("연결된 탭이 없습니다.");
   await chrome.tabs.get(slot.tabId);
-  state.snapshot = snapshotOf();
+  const [previousTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  state.snapshot = snapshotOf(previousTab ? { tabId: previousTab.id, windowId: previousTab.windowId } : null);
   state.manual = index;
   state.peek = null;
   state.slots.forEach(item => { item.pinned = false; });
@@ -212,7 +220,7 @@ function peekSlot(index) {
   state.peek = index;
 }
 
-function restore() {
+async function restore() {
   const previous = state.snapshot;
   state.peek = null;
   state.snapshot = null;
@@ -222,6 +230,12 @@ function restore() {
     const old = previous.slots[i];
     if (old.tabId === slot.tabId) Object.assign(slot, { pan: old.pan, muted: old.muted, pinned: old.pinned, volumes: old.volumes });
   });
+  if (previous.returnTab) {
+    try {
+      const tab = await chrome.tabs.update(previous.returnTab.tabId, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
+    } catch { /* The old tab may have closed; audio settings are still restored. */ }
+  }
 }
 
 function connectedFocusTarget() {
@@ -230,9 +244,21 @@ function connectedFocusTarget() {
   return state.slots[next].tabId !== null ? next : current;
 }
 
-async function alertMoment(moment) {
+async function clearAlerts(id = null) {
+  const existing = await chrome.notifications.getAll();
+  await Promise.all(Object.keys(existing).filter(key => key.startsWith(NOTIFICATION_PREFIX) && (!id || key === NOTIFICATION_PREFIX + id)).map(key => chrome.notifications.clear(key)));
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs.map(tab => chrome.tabs.sendMessage(tab.id, { to: "content", cmd: "moment-clear", id }).catch(() => {})));
+}
+
+function alertMoment(moment) {
+  return queueAlert(() => displayMoment(moment));
+}
+
+async function displayMoment(moment) {
   const index = slotIndex(moment.tabId);
-  if (index === -1 || state.settings.dnd) return;
+  if (index === -1 || state.settings.dnd || !state.moments.some(item => item.id === moment.id)) return;
+  await clearAlerts();
   const pan = state.slots[index].pan;
   toEngine("chime", { pan }).catch(() => {});
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -240,8 +266,6 @@ async function alertMoment(moment) {
     const shown = await showCard(tab.id, moment, index);
     if (shown) return;
   }
-  const existing = await chrome.notifications.getAll();
-  await Promise.all(Object.keys(existing).filter(id => id.startsWith(NOTIFICATION_PREFIX)).map(id => chrome.notifications.clear(id)));
   await chrome.notifications.create(NOTIFICATION_PREFIX + moment.id, {
     type: "basic",
     iconUrl: "icon.png",
@@ -355,8 +379,9 @@ const commands = {
   guide: () => {
     state.seenGuide = true;
   },
-  dismiss: ({ id }) => {
+  dismiss: async ({ id }) => {
     state.moments = state.moments.filter((moment) => moment.id !== id);
+    await queueAlert(() => clearAlerts(id));
   },
   "clear-return": () => {
     state.returnSummary = null;
@@ -463,7 +488,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   try {
     if (command === "connect-tab" && tab) await connectTab(tab);
     if (command === "switch-focus") await focusSlot(connectedFocusTarget());
-    if (command === "restore") restore();
+    if (command === "restore") await restore();
   } catch (error) {
     state.status = error.message;
   }

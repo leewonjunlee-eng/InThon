@@ -41,4 +41,14 @@ test('alert stays until a button, replaces on new event, and ignores late update
   emit('moment', first);
   walk(root).find(node => node.textContent === '나중에').onclick();
   assert.equal(root.children.length, 0);
+  emit('moment', first);
+  listener({ to: 'content', cmd: 'moment-clear', id: 'different-id' }, {}, () => {});
+  assert.equal(root.children.length, 1, 'clearing another event cannot close this card');
+  listener({ to: 'content', cmd: 'moment-clear', id: first.id }, {}, () => {});
+  assert.equal(root.children.length, 0);
+  emit('moment-update', { ...first, summary: '늦은 요약' });
+  assert.equal(root.children.length, 0);
+  emit('moment', second);
+  listener({ to: 'content', cmd: 'moment-clear', id: null }, {}, () => {});
+  assert.equal(root.children.length, 0, 'a new event in another tab can clear the old card');
 });

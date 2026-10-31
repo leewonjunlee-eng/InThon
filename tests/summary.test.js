@@ -40,6 +40,15 @@ test('no recognized speech is not summarized or invented', async () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].moment.summaryStatus, 'no-transcript');
 });
+
+test('a periodic judge without speech cannot consume the cooldown for a following sound alert', async () => {
+  const { engine, channel, events } = fixture({ summarize: () => assert.fail('no speech to summarize') }, '(소리 변화: 함성)');
+  await engine.moment(channel, { kind: 'judge' });
+  assert.equal(events.length, 0);
+  assert.equal(channel.lastMomentAt, 0);
+  await engine.moment(channel, { kind: 'surge' });
+  assert.equal(events.length, 1);
+});
 test('empty AI output is rejected and ungrounded evidence is excluded', () => {
   assert.throws(() => normalizeSummary({ summary: ' ' }, []));
   const result = normalizeSummary({ summary: '공지', evidence: ['없는 문장'] }, [{ text: '금요일 제출' }]);

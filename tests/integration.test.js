@@ -87,6 +87,9 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.slots[1].pinned, false);
     assert.equal(latest.slots[1].role, 'standby');
     await send('restore');
+    assert.equal(activeId, 12, 'automatic-mode restore must return to the original active tab');
+    assert.equal(latest.manual, null);
+    assert.equal(latest.slots[1].role, 'main');
     assert.equal(latest.slots[1].pinned, true, 'restore must recover pin state changed by focus');
     assert.equal(latest.slots[0].muted, true, 'restore must recover mute state changed by focus');
     await send('focus', { index: 0 });
@@ -94,6 +97,8 @@ test('frontend selection connects only its active tab and preserves audio contro
     await shortcut('switch-focus');
     assert.equal(activeId, 12, 'keyboard switch must activate the other tab');
     assert.equal(latest.slots[1].role, 'main');
+    await shortcut('restore');
+    assert.equal(activeId, 11, 'restore shortcut must await the old tab activation');
     await send('focus', { tabId: 11 });
     assert.equal(activeId, 11, 'alert focus resolves the live tab, not an old slot index');
     assert.equal((await send('focus', { tabId: 999 })).ok, false);
@@ -105,6 +110,7 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(latest.moments[0].summaryStatus, 'ai');
     assert.equal(contentMessages.at(-1).cmd, 'moment-update');
     await send('dismiss', { id: moment.id });
+    assert.equal(contentMessages.at(-1).cmd, 'moment-clear', 'dismiss closes the page card as well as history');
     const beforeDismissedUpdate = contentMessages.length;
     await emit({ type: 'moment-update', moment });
     assert.equal(contentMessages.length, beforeDismissedUpdate);
@@ -118,6 +124,15 @@ test('frontend selection connects only its active tab and preserves audio contro
     assert.equal(notifications.get('moment:system-1').requireInteraction, true);
     await emit({ type: 'moment', moment: { ...moment, id: 'system-2' } });
     assert.equal(notifications.size, 1, 'new system alert replaces previous alert');
+    windowFocused = true;
+    await send('settings', { patch: {} });
+    await emit({ type: 'moment', moment: { ...moment, id: 'page-after-system' } });
+    assert.equal(notifications.size, 0, 'a page alert also replaces existing system alerts');
+    assert.equal(contentMessages.at(-1).cmd, 'moment');
+    assert(contentMessages.some(message => message.cmd === 'moment-clear' && message.id === null));
+    windowFocused = false;
+    await send('settings', { patch: {} });
+    await emit({ type: 'moment', moment: { ...moment, id: 'system-2' } });
     await notificationClick('moment:system-2', 0);
     assert.equal(activeId, 12, 'system alert focus activates the matching tab');
     assert.equal(notifications.size, 0);
