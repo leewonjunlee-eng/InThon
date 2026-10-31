@@ -40,3 +40,15 @@ test('confirmation mode never promotes a viewed standby tab by itself', () => {
   assert.deepEqual(computeRoles(state), ['main', 'standby']);
   assert.deepEqual(computeRoles({ ...state, manual: 1 }), ['standby', 'main']);
 });
+
+test('failed delivery retries at most three times and success stops retries', async () => {
+  let callback, attempts=0, fail=true;
+  const controller=createFocusSuggestion({read:()=>({tabId:12}),show:async()=>{attempts++;if(fail)throw Error('no receiver')},clear:async()=>{},schedule:fn=>{callback=fn;return 1},cancel:()=>{callback=null}});
+  controller.update();await callback();assert.equal(attempts,1);
+  fail=false;const retry=callback;callback=null;await retry();assert.equal(attempts,2);assert.equal(callback,null);
+  controller.update();assert.equal(callback,null);
+  let pending, total=0;
+  const broken=createFocusSuggestion({read:()=>({tabId:13}),show:async()=>{total++;throw Error('blocked')},clear:async()=>{},schedule:fn=>{pending=fn;return 1},cancel:()=>{}});
+  broken.update();while(pending){const fn=pending;pending=null;await fn();}
+  assert.equal(total,3);
+});

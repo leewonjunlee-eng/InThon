@@ -69,7 +69,10 @@ const focusSuggestion = createFocusSuggestion({
     }
     catch {
       await chrome.scripting.executeScript({ target: { tabId: candidate.tabId }, files: ["inbox.js", "content.js", "status-bar.js"] });
-      if (focusCandidate()?.tabId === candidate.tabId) await chrome.tabs.sendMessage(candidate.tabId, message);
+      if (focusCandidate()?.tabId === candidate.tabId) {
+        const reply = await chrome.tabs.sendMessage(candidate.tabId, message);
+        if (!reply?.ok) throw new Error("알림 화면이 응답하지 않았습니다.");
+      }
     }
   },
 });

@@ -15,7 +15,7 @@ if (!globalThis.catchSoundStatusLoaded) {
   </style><section class="shell" aria-label="CatchSound 감지 상태"><div class="bar"><button class="handle" aria-label="상태바 이동" title="드래그 또는 방향키로 이동">⠿</button><button class="toggle" aria-expanded="false" aria-controls="monitor-panel"><span class="dot"></span><span class="label">상태 확인 중</span></button><button class="close" aria-label="상태바 닫기" title="상태바 닫기">×</button></div><div class="panel" id="monitor-panel" hidden><div class="list"></div><p class="message" role="status"></p></div></section>`;
   document.documentElement.append(host);
   const $ = s => shadow.querySelector(s);
-  let position = null, expanded = false, drag = null, signature = '', stopped = false, dismissed = false;
+  let position = null, expanded = false, drag = null, signature = '', stopped = false, dismissed = false, connected = 0, hasConnected = false;
   const clamp = (n, max) => Math.max(12, Math.min(n, Math.max(12,max)));
   function place() {
     const width = $('.shell').getBoundingClientRect().width || 294;
@@ -29,11 +29,18 @@ if (!globalThis.catchSoundStatusLoaded) {
   async function savePosition() {
     try { await chrome.storage.local.set({[KEY]:position}); } catch {}
   }
-  $('.toggle').onclick = () => {
+  function togglePanel() {
     expanded=!expanded; $('.panel').hidden=!expanded;
-    $('.toggle').setAttribute('aria-expanded', String(expanded)); place();
-  };
-  $('.close').onclick = () => { dismissed=true; host.style.display='none'; place(); };
+    $('.toggle').setAttribute('aria-expanded', String(expanded)); updateControl(); place();
+  }
+  function updateControl() {
+    const button=$('.close');
+    button.textContent=connected ? (expanded?'▴':'▾') : '×';
+    button.setAttribute('aria-label',connected ? (expanded?'상세 접기':'상세 펼치기') : '상태바 닫기');
+    button.title=connected ? '감지 상태 펼치기·접기' : '상태바 닫기';
+  }
+  $('.toggle').onclick=()=>{if(connected)togglePanel();};
+  $('.close').onclick = () => { if(connected){togglePanel();return;} dismissed=true; host.style.display='none'; place(); };
   const handle=$('.handle');
   handle.onpointerdown=e=>{
     if(e.button!==0) return;
@@ -60,12 +67,16 @@ if (!globalThis.catchSoundStatusLoaded) {
   function node(tag,text,cls) {const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;}
   function update(snapshot) {
     if(!snapshot || stopped)return;
-    if(!snapshot.connected) dismissed=false;
-    host.style.display=snapshot.connected && !dismissed?'block':'none';
+    connected=snapshot.connected;
+    if(connected){dismissed=false;hasConnected=true;}
+    else {expanded=false;$('.panel').hidden=true;$('.toggle').setAttribute('aria-expanded','false');}
+    host.style.display=hasConnected && !dismissed?'block':'none';
+    updateControl();
     const state=snapshot.errors?'error':snapshot.delayed?'delay':snapshot.preparing?'preparing':snapshot.ready?'ready':'off';
     const suffix=snapshot.errors?`실패 ${snapshot.errors}`:snapshot.delayed?`지연 ${snapshot.delayed}`:snapshot.preparing?`준비 중 ${snapshot.preparing}`:snapshot.ready ? `감지 중 ${snapshot.ready}` : '알림 사용 안 함';
     $('.bar').className='bar '+state;
     $('.label').textContent=`${state==='error'?'⚠ ':''}연결 ${snapshot.connected} · ${suffix}`;
+    if(!connected) $('.label').textContent='연결된 탭 없음';
     const key=JSON.stringify(snapshot.items);
     if(key!==signature){
       signature=key;$('.list').replaceChildren();
@@ -89,14 +100,33 @@ if (!globalThis.catchSoundStatusLoaded) {
     }
     place();
   }
+  function dispose() {
+    stopped=true;clearInterval(poll);host.style.display='none';place();host.remove();
+    window.removeEventListener('resize',place);
+    chrome.runtime.onMessage.removeListener?.(onMonitor);
+    chrome.storage.onChanged?.removeListener?.(onStorage);
+    globalThis.catchSoundStatusLoaded=false;
+  }
   async function refresh(){
     if(stopped)return;
-    try{const r=await chrome.runtime.sendMessage({to:'bg',cmd:'get-monitor'});if(r?.ok)update(r.result);}
-    catch {stopped=true; clearInterval(poll); host.style.display='none'; place(); host.remove(); window.removeEventListener('resize',place); globalThis.catchSoundStatusLoaded=false;}
+    try{
+      const r=await chrome.runtime.sendMessage({to:'bg',cmd:'get-monitor'});
+      if(r?.ok)update(r.result);
+    } catch(error) {
+      if(/Extension context invalidated/i.test(error?.message ?? '')) {dispose();return;}
+      // A temporary worker/message failure must not remove a healthy receiver.
+      $('.label').textContent='상태 확인 지연 · 다시 연결 중';$('.bar').className='bar delay';
+    }
   }
-  chrome.runtime.onMessage.addListener((m,_sender,respond)=>{if(m.to==='monitor'){update(m.snapshot);respond({monitorReady:true});}});
-  chrome.storage.local.get(KEY).then(v=>{position=v[KEY]??null;place();}).catch(()=>{});
-  chrome.storage.onChanged?.addListener((changes,area)=>{if(area==='local'&&changes[KEY]&&!drag){position=changes[KEY].newValue??null;place();}});
+  function onMonitor(m,_sender,respond){
+    if(m.to==='monitor' && !stopped){update(m.snapshot);respond({monitorReady:true});}
+  }
+  function onStorage(changes,area){
+    if(!stopped && area==='local'&&changes[KEY]&&!drag){position=changes[KEY].newValue??null;place();}
+  }
+  chrome.runtime.onMessage.addListener(onMonitor);
+  chrome.storage.local.get(KEY).then(v=>{if(!stopped){position=v[KEY]??null;place();}}).catch(()=>{});
+  chrome.storage.onChanged?.addListener(onStorage);
   window.addEventListener('resize',place);
   const poll=setInterval(refresh,5000);void refresh();
 }

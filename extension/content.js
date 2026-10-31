@@ -3,7 +3,7 @@ if (!globalThis.audioFocusLoaded) {
   globalThis.audioFocusLoaded = true;
   const openCards = new Map(); // key -> { host, summaryNode, fullSummaryNode, evidenceNode, statusNode }
   const STACK_ID = "audio-focus-stack";
-  const STACK_STYLE = "position: fixed; top: var(--catchsound-status-bottom, 12px); right: 12px; z-index: 2147483647; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 24px); overflow: auto;";
+  const STACK_STYLE = "position: fixed; top: var(--catchsound-status-bottom, 12px); right: 12px; z-index: 2147483647; display: flex; flex-direction: column; gap: 8px; max-height: max(0px, calc(100vh - var(--catchsound-status-bottom, 12px) - 12px)); overflow: auto;";
   const STYLE = `
     .card { width: min(300px, calc(100vw - 44px)); overflow: auto; z-index: 2147483647; background: #fff; color: #242432;
       border: 1px solid #dedee8; border-radius: 12px; box-shadow: 0 12px 40px #24243233; padding: 12px;

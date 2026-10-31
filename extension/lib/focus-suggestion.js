@@ -8,11 +8,19 @@ export function createFocusSuggestion({ read, show, clear, schedule = setTimeout
     visit = candidate ? { ...candidate } : null;
     if (!visit) return;
     const current = visit;
-    current.timer = schedule(async () => {
+    const attempt = async () => {
       if (visit !== current || read()?.tabId !== current.tabId) return;
-      await show(current).catch(() => {});
+      try { await show(current); }
+      catch {
+        current.failures = (current.failures ?? 0) + 1;
+        if (visit === current && read()?.tabId === current.tabId && current.failures < 3) {
+          current.timer = schedule(attempt, 3000);
+        }
+        return;
+      }
       if (visit !== current || read()?.tabId !== current.tabId) await clear(current.tabId);
-    }, 3000);
+    };
+    current.timer = schedule(attempt, 3000);
   }
   return { update };
 }
